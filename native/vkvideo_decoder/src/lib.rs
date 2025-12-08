@@ -1,19 +1,14 @@
 use std::sync::Mutex;
 
-use rustler::{Binary, Env, Error, NifStruct, ResourceArc, Term};
+use rustler::{Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc, Term};
 use vk_video::{parameters::DecoderParameters, BytesDecoder, EncodedInputChunk};
-
-#[derive(NifStruct)]
-#[module = "Elixir.VKVideo.DecoderOptions"]
-struct DecoderOptions {}
 
 struct DecoderResource {
     pub decoder_mutex: Mutex<BytesDecoder>,
 }
 
 fn load(env: Env, _: Term) -> bool {
-    rustler::resource!(DecoderResource, env);
-    true
+    rustler::resource!(DecoderResource, env)
 }
 
 #[rustler::nif]
@@ -35,38 +30,75 @@ fn new() -> Result<ResourceArc<DecoderResource>, Error> {
     Ok(resource)
 }
 
-#[rustler::nif(schedule = "DirtyCpu")]
-fn decode(
-    env: Env,
-    resource: ResourceArc<DecoderResource>,
-    bytes: Binary,
-    pts: Option<u64>,
-) -> Vec<Vec<u8>> {
-    let mut decoder = resource.decoder_mutex.try_lock().unwrap();
-    let encoded_input_chunk = EncodedInputChunk {
-        data: bytes.as_slice(),
-        pts,
-    };
-    let decoded_frames = decoder.decode(encoded_input_chunk).unwrap();
-
-    let mut results = Vec::new();
-    for frame in decoded_frames {
-        results.push(frame.data.frame);
-    }
-    results
+#[derive(NifStruct)]
+#[module = "Membrane.VKVideo.RawFrame"]
+struct RawFrame<'a> {
+    pub payload: Binary<'a>,
+    pub pts: Option<u64>,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
-fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Vec<Vec<u8>> {
-    let mut decoder = resource.decoder_mutex.try_lock().unwrap();
+fn decode<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<DecoderResource>,
+    bytes: Binary,
+    pts: Option<u64>,
+) -> Result<Vec<RawFrame<'a>>, &'static str> {
+    resource
+        .decoder_mutex
+        .try_lock()
+        .map_err(|_err| "Couldn't obtain decoder lock")
+        .and_then(|mut decoder| {
+            let encoded_input_chunk = EncodedInputChunk {
+                data: bytes.as_slice(),
+                pts,
+            };
+            decoder
+                .decode(encoded_input_chunk)
+                .map_err(|_err| "Couldn't decode")
+        })
+        .map(|decoded_frames| {
+            let mut results = Vec::new();
+            for frame in decoded_frames {
+                let len = frame.data.frame.len();
+                let mut payload = OwnedBinary::new(len).unwrap();
+                payload.as_mut_slice().copy_from_slice(&frame.data.frame);
 
-    let decoded_frames = decoder.flush();
+                results.push(RawFrame {
+                    payload: payload.release(env),
+                    pts: frame.pts,
+                    width: frame.data.width,
+                    height: frame.data.height,
+                });
+            }
+            results
+        })
+}
+#[rustler::nif(schedule = "DirtyCpu")]
+fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<Vec<RawFrame>, &'static str> {
+    match resource.decoder_mutex.try_lock() {
+        Ok(mut decoder) => {
+            let decoded_frames = decoder.flush();
 
-    let mut results = Vec::new();
-    for frame in decoded_frames {
-        results.push(frame.data.frame);
+            let mut results = Vec::new();
+            for frame in decoded_frames {
+                let len = frame.data.frame.len();
+                let mut payload = OwnedBinary::new(len).unwrap();
+                payload.as_mut_slice().copy_from_slice(&frame.data.frame);
+
+                results.push(RawFrame {
+                    payload: payload.release(env),
+                    pts: frame.pts,
+                    width: frame.data.width,
+                    height: frame.data.height,
+                });
+            }
+            Ok(results)
+        }
+        Err(_e) => Err("Couldn't obtain decoder lock"),
     }
-    results
 }
 
 rustler::init!("Elixir.Membrane.VKVideo.Decoder.Native", load = load);
