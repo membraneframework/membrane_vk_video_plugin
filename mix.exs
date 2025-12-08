@@ -38,6 +38,9 @@ defmodule Membrane.VKVideo.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 1.0"},
+      {:membrane_h26x_plugin, "~> 0.10.5"},
+      {:membrane_h264_format, "~> 0.6.1"},
+      {:membrane_raw_video_format, "~> 0.4.2"},
       {:rustler, "~> 0.37.1"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
