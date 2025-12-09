@@ -8,7 +8,7 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_init(_ctx, _opts) do
-    state = %{decoder: nil, stream_format: nil}
+    state = %{decoder: nil, width: nil, height: nil}
     {[], state}
   end
 
@@ -25,31 +25,40 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    decoded_buffers = Native.decode(state.decoder, buffer.payload, buffer.pts)
-    actions = Enum.map(decoded_buffers, &{:buffer, {:output, %Membrane.Buffer{payload: &1}}})
-    {actions, state}
+    {:ok, decoded_frames} = Native.decode(state.decoder, buffer.payload, buffer.pts)
+    Enum.flat_map_reduce(decoded_frames, state, &prepare_actions(&1, &2))
   end
 
-  defp maybe_send_stream_format(buffer, state) do
-    {[
-       stream_format:
-         {:output,
-          %Membrane.RawVideo{
-            height: 720,
-            width: 1080,
-            pixel_format: :I420,
-            framerate: nil,
-            aligned: true
-          }}
-     ], state}
+  defp prepare_actions(frame, state) do
+    if frame.width != state.width and frame.height != state.height do
+      actions = [
+        stream_format:
+          {:output,
+           %Membrane.RawVideo{
+             height: frame.height,
+             width: frame.width,
+             pixel_format: :I420,
+             framerate: nil,
+             aligned: true
+           }},
+        buffer:
+          {:output, %Membrane.Buffer{payload: frame.payload, pts: frame.pts, dts: frame.pts}}
+      ]
+
+      state = %{state | width: frame.width, height: frame.height}
+      {actions, state}
+    else
+      {[
+         buffer:
+           {:output, %Membrane.Buffer{payload: frame.payload, pts: frame.pts, dts: frame.pts}}
+       ], state}
+    end
   end
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
-    actions =
-      Native.flush(state.decoder)
-      |> Enum.map(&{:buffer, {:output, %Membrane.Buffer{payload: &1}}})
-
-    {actions, state}
+    {:ok, flushed_frames} = Native.flush(state.decoder)
+    {actions, state} = Enum.flat_map_reduce(flushed_frames, state, &prepare_actions(&1, &2))
+    {actions ++ [end_of_stream: :output], state}
   end
 end

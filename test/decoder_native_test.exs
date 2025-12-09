@@ -2,7 +2,8 @@ defmodule Decoder.NativeTest do
   use ExUnit.Case, async: true
   alias Membrane.VKVideo.Decoder.Native
 
-  test "Decode 1 240p frame" do
+  @tag :native
+  test "Decode stream" do
     in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 
     assert {:ok, file} = File.read(in_path)
