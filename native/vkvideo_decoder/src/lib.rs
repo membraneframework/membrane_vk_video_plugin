@@ -78,12 +78,14 @@ fn decode<'a>(
 }
 #[rustler::nif(schedule = "DirtyCpu")]
 fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<Vec<RawFrame>, &'static str> {
-    match resource.decoder_mutex.try_lock() {
-        Ok(mut decoder) => {
-            let decoded_frames = decoder.flush();
-
+    resource
+        .decoder_mutex
+        .try_lock()
+        .map_err(|_err| "Couldn't obtain decoder lock")
+        .and_then(|mut decoder| decoder.flush().map_err(|_err| "Couldn't flush"))
+        .map(|flushed_frames| {
             let mut results = Vec::new();
-            for frame in decoded_frames {
+            for frame in flushed_frames {
                 let len = frame.data.frame.len();
                 let mut payload = OwnedBinary::new(len).unwrap();
                 payload.as_mut_slice().copy_from_slice(&frame.data.frame);
@@ -95,10 +97,8 @@ fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<Vec<RawFram
                     height: frame.data.height,
                 });
             }
-            Ok(results)
-        }
-        Err(_e) => Err("Couldn't obtain decoder lock"),
-    }
+            results
+        })
 }
 
 rustler::init!("Elixir.Membrane.VKVideo.Decoder.Native", load = load);

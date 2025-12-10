@@ -11,7 +11,7 @@ defmodule Decoder.NativeTest do
     {:ok, decoded_frames} = Native.decode(decoder_ref, file, 0)
     {:ok, flushed_frames} = Native.flush(decoder_ref)
     all_frames = decoded_frames ++ flushed_frames
-    assert length(all_frames) == 98
+    assert length(all_frames) == 100
     [first_frame | _rest_of_frames] = all_frames
     assert first_frame.pts == 0
     assert first_frame.width == 1280

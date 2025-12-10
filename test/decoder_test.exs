@@ -27,7 +27,7 @@ defmodule Decoder.Test do
       %Membrane.RawVideo{width: 1280, height: 720, pixel_format: :I420, aligned: true}
     )
 
-    Enum.each(0..97, fn i ->
+    Enum.each(0..99, fn i ->
       assert_sink_buffer(pid, :sink, buffer)
       assert buffer.pts == Membrane.Time.milliseconds(i * 40)
     end)
