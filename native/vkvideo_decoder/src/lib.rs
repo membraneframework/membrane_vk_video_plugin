@@ -34,7 +34,7 @@ fn new() -> Result<ResourceArc<DecoderResource>, Error> {
 #[module = "Membrane.VKVideo.RawFrame"]
 struct RawFrame<'a> {
     pub payload: Binary<'a>,
-    pub pts: Option<u64>,
+    pub pts_ns: Option<u64>,
     pub width: u32,
     pub height: u32,
 }
@@ -68,7 +68,7 @@ fn decode<'a>(
 
                 results.push(RawFrame {
                     payload: payload.release(env),
-                    pts: frame.pts,
+                    pts_ns: frame.pts,
                     width: frame.data.width,
                     height: frame.data.height,
                 });
@@ -92,7 +92,7 @@ fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<Vec<RawFram
 
                 results.push(RawFrame {
                     payload: payload.release(env),
-                    pts: frame.pts,
+                    pts_ns: frame.pts,
                     width: frame.data.width,
                     height: frame.data.height,
                 });

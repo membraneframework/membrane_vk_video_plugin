@@ -1,4 +1,8 @@
 defmodule Membrane.VKVideo.Decoder do
+  @moduledoc """
+  Decoder of H.264 stream taking advantage of hardware acceleration provided
+  by Vulkan video extensions.
+  """
   use Membrane.Filter
 
   alias __MODULE__.Native
@@ -30,29 +34,37 @@ defmodule Membrane.VKVideo.Decoder do
   end
 
   defp prepare_actions(frame, state) do
-    if frame.width != state.width and frame.height != state.height do
-      actions = [
-        stream_format:
-          {:output,
-           %Membrane.RawVideo{
-             height: frame.height,
-             width: frame.width,
-             pixel_format: :I420,
-             framerate: nil,
-             aligned: true
-           }},
-        buffer:
-          {:output, %Membrane.Buffer{payload: frame.payload, pts: frame.pts, dts: frame.pts}}
-      ]
+    {maybe_stream_format_actions, state} =
+      if frame.width != state.width and frame.height != state.height do
+        actions = [
+          stream_format:
+            {:output,
+             %Membrane.RawVideo{
+               height: frame.height,
+               width: frame.width,
+               pixel_format: :I420,
+               framerate: nil,
+               aligned: true
+             }}
+        ]
 
-      state = %{state | width: frame.width, height: frame.height}
-      {actions, state}
-    else
-      {[
-         buffer:
-           {:output, %Membrane.Buffer{payload: frame.payload, pts: frame.pts, dts: frame.pts}}
-       ], state}
-    end
+        state = %{state | width: frame.width, height: frame.height}
+        {actions, state}
+      else
+        {[], state}
+      end
+
+    buffer_actions = [
+      buffer:
+        {:output,
+         %Membrane.Buffer{
+           payload: frame.payload,
+           pts: Membrane.Time.nanoseconds(frame.pts_ns),
+           dts: Membrane.Time.nanoseconds(frame.pts_ns)
+         }}
+    ]
+
+    {maybe_stream_format_actions ++ buffer_actions, state}
   end
 
   @impl true

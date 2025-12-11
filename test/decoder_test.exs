@@ -35,7 +35,7 @@ defmodule Decoder.Test do
         assert buffer.pts == Membrane.Time.milliseconds(i * @frame_duration_ms)
       end)
 
-      assert_end_of_stream(pid, :sink, :input, 10000)
+      assert_end_of_stream(pid, :sink, :input)
 
       Pipeline.terminate(pid)
     end
