@@ -4,6 +4,7 @@
 [![API Docs](https://img.shields.io/badge/api-docs-yellow.svg?style=flat)](https://hexdocs.pm/membrane_vk_video_plugin)
 [![CircleCI](https://circleci.com/gh/membraneframework/membrane_vk_video_plugin.svg?style=svg)](https://circleci.com/gh/membraneframework/membrane_vk_video_plugin)
 
+Membrane H.264 decoder based on [vk-video](https://crates.io/crates/vk-video).
 It's a part of the [Membrane Framework](https://membrane.stream).
 
 ## Installation
@@ -16,11 +17,9 @@ def deps do
     {:membrane_vk_video_plugin, "~> 0.1.0"}
   ]
 end
-```
 
-## Usage
+This package depends on hardware encoding acceleration capabilities provided by [Vulkan video exensions](https://www.khronos.org/blog/an-introduction-to-vulkan-video) and works only on Linux with NVIDIA or AMD GPUs with Mesa drivers. For more information see the README of the [`vk-video`](https://crates.io/crates/vk-video) Rust package.
 
-TODO
 
 ## Copyright and License
 
