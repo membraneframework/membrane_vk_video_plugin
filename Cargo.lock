@@ -1018,6 +1018,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vkvideo_encoder"
+version = "0.1.0"
+dependencies = [
+ "rustler",
+ "vk-video",
+ "wgpu",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
