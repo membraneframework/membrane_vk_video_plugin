@@ -4,13 +4,15 @@ defmodule Encoder.NativeTest do
 
   @width 1280
   @height 720
-  # number of bytes per sample is 12 since we use 420 chroma subsampling
-  @frame_size_in_bytes @width * @height * 12
-  @framerate {30, 1}
+  # number of bytes per sample is 1.5 since we use 420 chroma subsampling
+  @frame_size_in_bytes round(@width * @height * 1.5)
+  @framerate {25, 1}
 
   @tag :encoder_native
-  test "Encoder encodes raw frames in YUV format into H.264 stream" do
-    in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
+  @tag :tmp_dir
+  test "Encoder encodes raw frames in YUV format into H.264 stream", ctx do
+    in_path = "./fixtures/ref-10.yuv" |> Path.expand(__DIR__)
+    out_path = Path.join(ctx.tmp_dir, "out.h264")
 
     assert {:ok, file} = File.read(in_path)
     {:ok, encoder_ref} = Native.new(@width, @height, @framerate)
@@ -18,8 +20,13 @@ defmodule Encoder.NativeTest do
 
     encoded_frames =
       Enum.map(raw_frames, fn raw_frame ->
-        {:ok, encoded_frame} = Encoder.encode(raw_frame)
-        encoded_frame
+        {:ok, encoded_frame} =
+          Native.encode(encoder_ref, raw_frame)
+
+        encoded_frame.payload
       end)
+
+    stream = Enum.join(encoded_frames)
+    File.write!(out_path, stream)
   end
 end

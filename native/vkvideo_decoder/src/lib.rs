@@ -9,6 +9,7 @@ rustler::atoms! {
   vk_adapter_creation_failure,
   vk_device_creation_failure,
   vk_decoder_creation_failure,
+  owned_binary_allocation_failure,
   decoder_lock_failure,
   decode_failure,
   flush_failure
@@ -54,23 +55,24 @@ fn decode<'a>(
     env: Env<'a>,
     resource: ResourceArc<DecoderResource>,
     bytes: Binary,
-    pts: Option<u64>,
+    pts_ns: Option<u64>,
 ) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
     let mut decoder = resource
         .decoder_mutex
         .try_lock()
-        .map_err(|_| Error::Term(Box::new(decoder_lock_failure())))?;
+        .map_err(|err| Error::Term(Box::new((decoder_lock_failure(), err.to_string()))))?;
     let encoded_input_chunk = EncodedInputChunk {
         data: bytes.as_slice(),
-        pts,
+        pts: pts_ns,
     };
     let decoded_frames = decoder
         .decode(encoded_input_chunk)
-        .map_err(|_| Error::Term(Box::new(decode_failure())))?;
+        .map_err(|err| Error::Term(Box::new((decode_failure(), err.to_string()))))?;
     let mut results = Vec::new();
     for frame in decoded_frames {
         let len = frame.data.frame.len();
-        let mut payload = OwnedBinary::new(len).unwrap();
+        let mut payload = OwnedBinary::new(len)
+            .ok_or(Error::Term(Box::new(owned_binary_allocation_failure())))?;
         payload.as_mut_slice().copy_from_slice(&frame.data.frame);
 
         results.push(RawFrame {
@@ -87,16 +89,17 @@ fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<(Atom, Vec<
     let mut decoder = resource
         .decoder_mutex
         .try_lock()
-        .map_err(|_| Error::Term(Box::new(decoder_lock_failure())))?;
+        .map_err(|err| Error::Term(Box::new((decoder_lock_failure(), err.to_string()))))?;
 
     let flushed_frames = decoder
         .flush()
-        .map_err(|_| Error::Term(Box::new(flush_failure())))?;
+        .map_err(|err| Error::Term(Box::new((flush_failure(), err.to_string()))))?;
 
     let mut results = Vec::new();
     for frame in flushed_frames {
         let len = frame.data.frame.len();
-        let mut payload = OwnedBinary::new(len).unwrap();
+        let mut payload = OwnedBinary::new(len)
+            .ok_or(Error::Term(Box::new(owned_binary_allocation_failure())))?;
         payload.as_mut_slice().copy_from_slice(&frame.data.frame);
 
         results.push(RawFrame {
