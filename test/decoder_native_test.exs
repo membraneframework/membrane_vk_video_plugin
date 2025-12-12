@@ -6,7 +6,7 @@ defmodule Decoder.NativeTest do
     in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 
     assert {:ok, file} = File.read(in_path)
-    decoder_ref = Native.new()
+    {:ok, decoder_ref} = Native.new()
     {:ok, decoded_frames} = Native.decode(decoder_ref, file, 0)
     {:ok, flushed_frames} = Native.flush(decoder_ref)
     all_frames = decoded_frames ++ flushed_frames

@@ -18,7 +18,8 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_setup(_ctx, state) do
-    state = %{state | decoder: Native.new()}
+    {:ok, decoder} = Native.new()
+    state = %{state | decoder: decoder}
     {[], state}
   end
 
