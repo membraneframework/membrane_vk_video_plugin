@@ -1,8 +1,9 @@
-use rustler::{Atom, Error, ResourceArc};
+use rustler::{Atom, Error, NifTaggedEnum, NifUntaggedEnum, ResourceArc};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary, Term};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, Frame, RawFrameData};
+use wgpu::wgc::present::ConfigureSurfaceError;
 struct EncoderResource {
     pub encoder_mutex: Mutex<BytesEncoder>,
     pub width: u32,
@@ -39,13 +40,59 @@ enum EncoderTune {
     HighQuality,
 }
 
+#[derive(NifStruct)]
+#[module = "Membrane.VKVideo.VariableBitrate"]
+struct VariableBitrate {
+    pub average_bitrate: u64,
+    pub max_bitrate: u64,
+    pub virtual_buffer_size_ms: u64,
+}
+
+#[derive(NifStruct)]
+#[module = "Membrane.VKVideo.ConstantBitrate"]
+struct ConstantBitrate {
+    pub bitrate: u64,
+    pub virtual_buffer_size_ms: u64,
+}
+
+#[derive(NifTaggedEnum)]
+enum EncoderRateControl {
+    EncoderDefault,
+    VariableBitrate(VariableBitrate),
+    ConstantBitrate(ConstantBitrate),
+    Disabled,
+}
+
+impl Into<RateControl> for EncoderRateControl {
+    fn into(self) -> RateControl {
+        match self {
+            EncoderRateControl::EncoderDefault => RateControl::EncoderDefault,
+            EncoderRateControl::ConstantBitrate(config) => RateControl::ConstantBitrate {
+                bitrate: config.bitrate,
+                virtual_buffer_size: std::time::Duration::from_millis(
+                    config.virtual_buffer_size_ms,
+                ),
+            },
+            EncoderRateControl::VariableBitrate(config) => RateControl::VariableBitrate {
+                average_bitrate: config.average_bitrate,
+                max_bitrate: config.max_bitrate,
+                virtual_buffer_size: std::time::Duration::from_millis(
+                    config.virtual_buffer_size_ms,
+                ),
+            },
+
+            EncoderRateControl::Disabled => RateControl::Disabled,
+        }
+    }
+}
+
 #[rustler::nif]
 fn new(
     width: u32,
     height: u32,
     frame_rate: (u32, u32),
     tune: EncoderTune,
-    average_bitrate_option: Option<u64>,
+    rate_control_option: Option<EncoderRateControl>,
 ) -> Result<(Atom, ResourceArc<EncoderResource>), Error> {
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
@@ -67,16 +114,11 @@ fn new(
         },
     };
 
-    let average_bitrate = average_bitrate_option.unwrap_or(1_000_000);
-    let rate_control = RateControl::VariableBitrate {
-        average_bitrate,
-        max_bitrate: average_bitrate * 2,
-        virtual_buffer_size: std::time::Duration::from_secs(2),
-    };
+    let rate_control = rate_control_option.unwrap_or(EncoderRateControl::EncoderDefault);
 
     let parameters = match tune {
         EncoderTune::LowLatency => device
-            .encoder_parameters_low_latency(video_parameters, rate_control)
+            .encoder_parameters_low_latency(video_parameters, rate_control.into())
             .map_err(|err| {
                 Error::Term(Box::new((
                     encoder_parameters_creation_error(),
@@ -84,7 +126,7 @@ fn new(
                 )))
             })?,
         EncoderTune::HighQuality => device
-            .encoder_parameters_high_quality(video_parameters, rate_control)
+            .encoder_parameters_high_quality(video_parameters, rate_control.into())
             .map_err(|err| {
                 Error::Term(Box::new((
                     encoder_parameters_creation_error(),
@@ -92,15 +134,6 @@ fn new(
                 )))
             })?,
     };
-
-    device
-        .encoder_parameters_low_latency(video_parameters, rate_control)
-        .map_err(|err| {
-            Error::Term(Box::new((
-                encoder_parameters_creation_error(),
-                err.to_string(),
-            )))
-        })?;
 
     let encoder = device
         .create_bytes_encoder(parameters)
