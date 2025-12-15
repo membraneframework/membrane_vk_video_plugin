@@ -8,6 +8,7 @@ defmodule Decoder.Test do
   @frame_duration_ms div(1000, @framerate_numerator)
 
   describe "Decoder decodes" do
+    @tag :requires_gpu
     test "one hundred H.264 frames with B-frames in presentation order" do
       in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 
@@ -41,6 +42,7 @@ defmodule Decoder.Test do
     end
 
     @tag :tmp_dir
+    @tag :requires_gpu
     test "ten H.264 frames", ctx do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
       out_path = Path.join(ctx.tmp_dir, "out.nv12")

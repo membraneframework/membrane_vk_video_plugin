@@ -1,6 +1,6 @@
 opts =
   if System.get_env("CIRCLECI") == "true" do
-    [capture_log: true, include: :doesnt_require_gpu]
+    [capture_log: true, exclude: [requires_gpu: true]]
   else
     [capture_log: true]
   end
