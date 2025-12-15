@@ -77,7 +77,7 @@ impl Into<RateControl> for EncoderRateControl {
     }
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 fn new(
     width: u32,
     height: u32,
@@ -128,7 +128,7 @@ fn new(
     Ok((ok(), resource))
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 fn encode<'a>(
     env: Env<'a>,
     resource: ResourceArc<EncoderResource>,
@@ -146,7 +146,7 @@ fn encode<'a>(
 
     let mut encoder = resource
         .encoder_mutex
-        .try_lock()
+        .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let encoded_frame = encoder

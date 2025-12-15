@@ -11,7 +11,7 @@ defmodule Encoder.NativeTest do
   @tag :encoder_native
   @tag :tmp_dir
   test "Encoder encodes raw frames in YUV format into H.264 stream", ctx do
-    in_path = "./fixtures/ref-10.yuv" |> Path.expand(__DIR__)
+    in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
     out_path = Path.join(ctx.tmp_dir, "out.h264")
 
     assert {:ok, file} = File.read(in_path)
@@ -33,7 +33,7 @@ defmodule Encoder.NativeTest do
   @tag :encoder_native
   @tag :tmp_dir
   test "Encoder encodes raw frames in YUV format into H.264 stream with desired framerate", ctx do
-    in_path = "./fixtures/ref-10.yuv" |> Path.expand(__DIR__)
+    in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
     out_path = Path.join(ctx.tmp_dir, "out.h264")
 
     assert {:ok, file} = File.read(in_path)
