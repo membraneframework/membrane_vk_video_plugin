@@ -43,7 +43,7 @@ defmodule Membrane.VKVideo.Decoder do
              %Membrane.RawVideo{
                height: frame.height,
                width: frame.width,
-               pixel_format: :I420,
+               pixel_format: :NV12,
                framerate: nil,
                aligned: true
              }}

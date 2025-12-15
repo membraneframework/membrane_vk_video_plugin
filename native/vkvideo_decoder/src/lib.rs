@@ -49,7 +49,7 @@ struct RawFrame<'a> {
     pub height: u32,
 }
 
-#[rustler::nif(schedule = "DirtyCpu")]
+#[rustler::nif(schedule = "DirtyIo")]
 fn decode<'a>(
     env: Env<'a>,
     resource: ResourceArc<DecoderResource>,
@@ -58,7 +58,7 @@ fn decode<'a>(
 ) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
     let mut decoder = resource
         .decoder_mutex
-        .try_lock()
+        .lock()
         .map_err(|_| Error::Term(Box::new(decoder_lock_failure())))?;
     let encoded_input_chunk = EncodedInputChunk {
         data: bytes.as_slice(),
@@ -82,11 +82,11 @@ fn decode<'a>(
     }
     Ok((ok(), results))
 }
-#[rustler::nif(schedule = "DirtyCpu")]
+#[rustler::nif(schedule = "DirtyIo")]
 fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<(Atom, Vec<RawFrame>), Error> {
     let mut decoder = resource
         .decoder_mutex
-        .try_lock()
+        .lock()
         .map_err(|_| Error::Term(Box::new(decoder_lock_failure())))?;
 
     let flushed_frames = decoder
