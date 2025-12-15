@@ -5,14 +5,6 @@ use vk_video::{parameters::DecoderParameters, BytesDecoder, EncodedInputChunk};
 
 rustler::atoms! {
   ok,
-  vk_instance_creation_failure,
-  vk_adapter_creation_failure,
-  vk_device_creation_failure,
-  vk_decoder_creation_failure,
-  owned_binary_allocation_failure,
-  decoder_lock_failure,
-  decode_failure,
-  flush_failure
 }
 
 struct DecoderResource {
@@ -26,16 +18,16 @@ fn load(env: Env, _: Term) -> bool {
 #[rustler::nif]
 fn new() -> Result<(Atom, ResourceArc<DecoderResource>), Error> {
     let instance = vk_video::VulkanInstance::new()
-        .map_err(|_| Error::Term(Box::new(vk_instance_creation_failure())))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let adapter = instance
         .create_adapter(None)
-        .map_err(|_| Error::Term(Box::new(vk_adapter_creation_failure())))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let device = adapter
         .create_device(wgpu::Features::empty(), wgpu::Limits::default())
-        .map_err(|_| Error::Term(Box::new(vk_device_creation_failure())))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder = device
         .create_bytes_decoder(DecoderParameters::default())
-        .map_err(|_| Error::Term(Box::new(vk_decoder_creation_failure())))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder_mutex = Mutex::new(decoder);
     let resource = ResourceArc::new(DecoderResource { decoder_mutex });
     Ok((ok(), resource))
@@ -60,19 +52,19 @@ fn decode<'a>(
     let mut decoder = resource
         .decoder_mutex
         .try_lock()
-        .map_err(|err| Error::Term(Box::new((decoder_lock_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoded_input_chunk = EncodedInputChunk {
         data: bytes.as_slice(),
         pts: pts_ns,
     };
     let decoded_frames = decoder
         .decode(encoded_input_chunk)
-        .map_err(|err| Error::Term(Box::new((decode_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let mut results = Vec::new();
     for frame in decoded_frames {
         let len = frame.data.frame.len();
         let mut payload = OwnedBinary::new(len)
-            .ok_or(Error::Term(Box::new(owned_binary_allocation_failure())))?;
+            .ok_or(Error::RaiseTerm(Box::new("Couldn't create OwnedBinary")))?;
         payload.as_mut_slice().copy_from_slice(&frame.data.frame);
 
         results.push(RawFrame {
@@ -89,17 +81,17 @@ fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<(Atom, Vec<
     let mut decoder = resource
         .decoder_mutex
         .try_lock()
-        .map_err(|err| Error::Term(Box::new((decoder_lock_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let flushed_frames = decoder
         .flush()
-        .map_err(|err| Error::Term(Box::new((flush_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let mut results = Vec::new();
     for frame in flushed_frames {
         let len = frame.data.frame.len();
         let mut payload = OwnedBinary::new(len)
-            .ok_or(Error::Term(Box::new(owned_binary_allocation_failure())))?;
+            .ok_or(Error::RaiseTerm(Box::new("Couldn't create OwnedBinary")))?;
         payload.as_mut_slice().copy_from_slice(&frame.data.frame);
 
         results.push(RawFrame {

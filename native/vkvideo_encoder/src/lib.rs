@@ -15,16 +15,7 @@ fn load(env: Env, _: Term) -> bool {
 }
 
 rustler::atoms! {
-  ok,
-  vk_instance_creation_failure,
-  vk_adapter_creation_failure,
-  vk_device_creation_failure,
-  vk_decoder_creation_failure,
-  encoder_parameters_creation_error,
-  owned_binary_allocation_failure,
-  encoder_lock_failure,
-  encode_failure,
-  flush_failure
+  ok
 }
 
 #[derive(NifStruct)]
@@ -97,13 +88,13 @@ fn new(
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
     let instance = vk_video::VulkanInstance::new()
-        .map_err(|err| Error::Term(Box::new((vk_instance_creation_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let adapter = instance
         .create_adapter(None)
-        .map_err(|err| Error::Term(Box::new((vk_adapter_creation_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let device = adapter
         .create_device(wgpu::Features::empty(), wgpu::Limits::default())
-        .map_err(|err| Error::Term(Box::new((vk_device_creation_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let video_parameters = VideoParameters {
         width: non_zero_width,
@@ -119,25 +110,15 @@ fn new(
     let parameters = match tune {
         EncoderTune::LowLatency => device
             .encoder_parameters_low_latency(video_parameters, rate_control.into())
-            .map_err(|err| {
-                Error::Term(Box::new((
-                    encoder_parameters_creation_error(),
-                    err.to_string(),
-                )))
-            })?,
+            .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
         EncoderTune::HighQuality => device
             .encoder_parameters_high_quality(video_parameters, rate_control.into())
-            .map_err(|err| {
-                Error::Term(Box::new((
-                    encoder_parameters_creation_error(),
-                    err.to_string(),
-                )))
-            })?,
+            .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
     };
 
     let encoder = device
         .create_bytes_encoder(parameters)
-        .map_err(|err| Error::Term(Box::new((vk_decoder_creation_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoder_mutex = Mutex::new(encoder);
     let resource = ResourceArc::new(EncoderResource {
         encoder_mutex,
@@ -166,15 +147,15 @@ fn encode<'a>(
     let mut encoder = resource
         .encoder_mutex
         .try_lock()
-        .map_err(|err| Error::Term(Box::new((encoder_lock_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let encoded_frame = encoder
         .encode(&frame, false)
-        .map_err(|err| Error::Term(Box::new((encode_failure(), err.to_string()))))?;
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let len = encoded_frame.data.len();
     let mut payload =
-        OwnedBinary::new(len).ok_or(Error::Term(Box::new(owned_binary_allocation_failure())))?;
+        OwnedBinary::new(len).ok_or(Error::RaiseTerm(Box::new("Couldn't create OwnedBinary")))?;
     payload.as_mut_slice().copy_from_slice(&encoded_frame.data);
 
     Ok((
