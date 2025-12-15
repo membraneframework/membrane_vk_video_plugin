@@ -2,6 +2,7 @@ defmodule Decoder.NativeTest do
   use ExUnit.Case, async: true
   alias Membrane.VKVideo.Decoder.Native
 
+  @tag :requires_gpu
   test "Decoder decoded H.264 stream" do
     in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 

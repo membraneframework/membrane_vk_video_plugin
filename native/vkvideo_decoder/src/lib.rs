@@ -22,7 +22,7 @@ fn load(env: Env, _: Term) -> bool {
     rustler::resource!(DecoderResource, env)
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyIo")]
 fn new() -> Result<(Atom, ResourceArc<DecoderResource>), Error> {
     let instance = vk_video::VulkanInstance::new()
         .map_err(|_| Error::Term(Box::new(vk_instance_creation_failure())))?;
