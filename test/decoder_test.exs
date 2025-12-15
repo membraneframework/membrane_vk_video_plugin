@@ -27,7 +27,7 @@ defmodule Decoder.Test do
       assert_sink_stream_format(
         pid,
         :sink,
-        %Membrane.RawVideo{width: 1280, height: 720, pixel_format: :I420, aligned: true}
+        %Membrane.RawVideo{width: 1280, height: 720, pixel_format: :NV12, aligned: true}
       )
 
       Enum.each(0..99, fn i ->
@@ -43,8 +43,8 @@ defmodule Decoder.Test do
     @tag :tmp_dir
     test "ten H.264 frames", ctx do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
-      out_path = Path.join(ctx.tmp_dir, "out.yuv")
-      ref_path = "./fixtures/ref-10.yuv" |> Path.expand(__DIR__)
+      out_path = Path.join(ctx.tmp_dir, "out.nv12")
+      ref_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
 
       pid =
         Pipeline.start_link_supervised!(
