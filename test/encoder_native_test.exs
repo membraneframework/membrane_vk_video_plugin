@@ -8,7 +8,7 @@ defmodule Encoder.NativeTest do
   @frame_size_in_bytes round(@width * @height * 1.5)
   @framerate {25, 1}
 
-  @tag :encoder_native
+  @tag :requires_gpu
   @tag :tmp_dir
   test "Encoder encodes raw frames in YUV format into H.264 stream", ctx do
     in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
@@ -30,7 +30,7 @@ defmodule Encoder.NativeTest do
     File.write!(out_path, stream)
   end
 
-  @tag :encoder_native
+  @tag :requires_gpu
   @tag :tmp_dir
   test "Encoder encodes raw frames in YUV format into H.264 stream with desired framerate", ctx do
     in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
