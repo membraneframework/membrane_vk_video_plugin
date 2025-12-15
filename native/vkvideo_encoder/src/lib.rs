@@ -1,9 +1,8 @@
-use rustler::{Atom, Error, NifTaggedEnum, NifUntaggedEnum, ResourceArc};
+use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary, Term};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, Frame, RawFrameData};
-use wgpu::wgc::present::ConfigureSurfaceError;
 struct EncoderResource {
     pub encoder_mutex: Mutex<BytesEncoder>,
     pub width: u32,
@@ -32,7 +31,7 @@ enum EncoderTune {
 }
 
 #[derive(NifStruct)]
-#[module = "Membrane.VKVideo.VariableBitrate"]
+#[module = "Membrane.VKVideo.Encoder.VariableBitrate"]
 struct VariableBitrate {
     pub average_bitrate: u64,
     pub max_bitrate: u64,
@@ -40,7 +39,7 @@ struct VariableBitrate {
 }
 
 #[derive(NifStruct)]
-#[module = "Membrane.VKVideo.ConstantBitrate"]
+#[module = "Membrane.VKVideo.Encoder.ConstantBitrate"]
 struct ConstantBitrate {
     pub bitrate: u64,
     pub virtual_buffer_size_ms: u64,

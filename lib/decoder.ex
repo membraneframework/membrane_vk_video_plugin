@@ -8,7 +8,7 @@ defmodule Membrane.VKVideo.Decoder do
   alias __MODULE__.Native
 
   def_input_pad :input, accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au}
-  def_output_pad :output, accepted_format: Membrane.RawVideo
+  def_output_pad :output, accepted_format: %Membrane.RawVideo{pixel_format: :NV12}
 
   @impl true
   def handle_init(_ctx, _opts) do

@@ -9,7 +9,10 @@ defmodule Membrane.VKVideo.Encoder.Native do
           non_neg_integer(),
           {non_neg_integer(), non_neg_integer()},
           :low_latency | :high_quality,
-          non_neg_integer() | nil
+          :encoder_default
+          | :disabled
+          | Membrane.VKVideo.Encoder.VariableBitrate.t()
+          | Membrane.VKVideo.Encoder.ConstantBitrate.t()
         ) :: {:ok, t()} | no_return()
   def new(_width, _height, _framerate, _tune \\ :low_latency, _average_bitrate \\ nil),
     do: :erlang.nif_error(:nif_not_loaded)
