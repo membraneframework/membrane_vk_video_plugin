@@ -1,5 +1,5 @@
 defmodule Decoder.Test do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   import Membrane.ChildrenSpec
   import Membrane.Testing.Assertions
   alias Membrane.Testing.{Pipeline, Sink}

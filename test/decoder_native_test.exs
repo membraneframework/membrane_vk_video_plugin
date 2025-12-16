@@ -1,5 +1,5 @@
 defmodule Decoder.NativeTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   alias Membrane.VKVideo.Decoder.Native
 
   @tag :requires_gpu

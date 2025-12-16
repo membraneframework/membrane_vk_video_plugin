@@ -1,5 +1,5 @@
 defmodule Encoder.NativeTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   alias Membrane.VKVideo.Encoder.Native
 
   @width 1280
@@ -8,56 +8,51 @@ defmodule Encoder.NativeTest do
   @frame_size_in_bytes round(@width * @height * 1.5)
   @framerate {25, 1}
 
-  @tag :requires_gpu
-  @tag :tmp_dir
-  test "Encoder encodes raw frames in NV12 format into H.264 stream", ctx do
-    in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
-    out_path = Path.join(ctx.tmp_dir, "out.h264")
-
-    assert {:ok, file} = File.read(in_path)
-    {:ok, encoder_ref} = Native.new(@width, @height, @framerate, :low_latency, :encoder_default)
-    raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
-
-    encoded_frames =
-      Enum.map(raw_frames, fn raw_frame ->
-        {:ok, encoded_frame} =
-          Native.encode(encoder_ref, raw_frame)
-
-        encoded_frame.payload
-      end)
-
-    stream = Enum.join(encoded_frames)
-    File.write!(out_path, stream)
+  for tune <- [:low_latency, :high_quality],
+      rate_control <- [
+        :encoder_default,
+        :disabled,
+        {:constant_bitrate,
+         %Membrane.VKVideo.Encoder.ConstantBitrate{
+           virtual_buffer_size_ms: 2000,
+           bitrate: 8000
+         }},
+        {:variable_bitrate,
+         %Membrane.VKVideo.Encoder.VariableBitrate{
+           virtual_buffer_size_ms: 2000,
+           average_bitrate: 2000,
+           max_bitrate: 4000
+         }}
+      ] do
+    {tune, rate_control}
   end
+  |> Enum.map(fn {tune, rate_control} ->
+    rate_control_type = if is_tuple(rate_control), do: elem(rate_control, 0), else: rate_control
+    rate_control_ast = Macro.escape(rate_control)
+    @tag :requires_gpu
+    test "Encoder encodes raw frames in NV12 format into H.264 stream with the following arguments - tune: #{tune}, rate_control: #{rate_control_type}" do
+      in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
 
-  @tag :requires_gpu
-  @tag :tmp_dir
-  test "Encoder encodes raw frames in NV12 format into H.264 stream with desired encoder settings",
-       ctx do
-    in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
-    out_path = Path.join(ctx.tmp_dir, "out.h264")
+      ref_path =
+        "./fixtures/ref-10-#{unquote(tune)}-#{unquote(rate_control_type)}.h264"
+        |> Path.expand(__DIR__)
 
-    assert {:ok, file} = File.read(in_path)
+      assert {:ok, file} = File.read(in_path)
 
-    rate_control = %Membrane.VKVideo.Encoder.ConstantBitrate{
-      virtual_buffer_size_ms: 2000,
-      bitrate: 8000
-    }
+      {:ok, encoder_ref} =
+        Native.new(@width, @height, @framerate, unquote(tune), unquote(rate_control_ast))
 
-    {:ok, encoder_ref} =
-      Native.new(@width, @height, @framerate, :high_quality, {:constant_bitrate, rate_control})
+      raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
 
-    raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
+      encoded_frames =
+        Enum.map(raw_frames, fn raw_frame ->
+          {:ok, encoded_frame} =
+            Native.encode(encoder_ref, raw_frame)
 
-    encoded_frames =
-      Enum.map(raw_frames, fn raw_frame ->
-        {:ok, encoded_frame} =
-          Native.encode(encoder_ref, raw_frame)
+          encoded_frame.payload
+        end)
 
-        encoded_frame.payload
-      end)
-
-    stream = Enum.join(encoded_frames)
-    File.write!(out_path, stream)
-  end
+      assert File.read!(ref_path) == Enum.join(encoded_frames)
+    end
+  end)
 end
