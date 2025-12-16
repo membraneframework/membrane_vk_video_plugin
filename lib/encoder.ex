@@ -34,8 +34,8 @@ defmodule Membrane.VKVideo.Encoder do
                 spec:
                   :encoder_default
                   | :disabled
-                  | Membrane.VKVideo.Encoder.VariableBitrate.t()
-                  | Membrane.VKVideo.Encoder.ConstantBitrate.t(),
+                  | {:variable_bitrate, Membrane.VKVideo.Encoder.VariableBitrate.t()}
+                  | {:constant_bitrate, Membrane.VKVideo.Encoder.ConstantBitrate.t()},
                 default: :encoder_default,
                 description: """
                 Specifies which rate control mechanism should by used by the encoder.
@@ -48,18 +48,12 @@ defmodule Membrane.VKVideo.Encoder do
       encoder: nil,
       width: nil,
       height: nil,
-      override_framerate?: opts.framerate == nil,
+      override_framerate?: opts.framerate != nil,
       framerate: opts.framerate,
-      rate_control: opts.rate_control
+      rate_control: opts.rate_control,
+      tune: opts.tune
     }
 
-    {[], state}
-  end
-
-  @impl true
-  def handle_setup(_ctx, state) do
-    {:ok, decoder} = Native.new(state.width, state.height, state.framerate, state.rate_control)
-    state = %{state | decoder: decoder}
     {[], state}
   end
 
@@ -73,7 +67,14 @@ defmodule Membrane.VKVideo.Encoder do
         """)
       end
 
-      {:ok, encoder} = Native.new(state.width, state.height, state.framerate, state.rate_control)
+      {:ok, encoder} =
+        Native.new(
+          stream_format.width,
+          stream_format.height,
+          state.framerate,
+          state.tune,
+          state.rate_control
+        )
 
       %{
         state
@@ -91,7 +92,14 @@ defmodule Membrane.VKVideo.Encoder do
   def handle_stream_format(:input, stream_format, _ctx, %{override_framerate?: false} = state) do
     if stream_format.width != state.width or stream_format.height != state.height or
          stream_format.framerate != state.framerate do
-      {:ok, encoder} = Native.new(state.width, state.height, state.framerate, state.rate_control)
+      {:ok, encoder} =
+        Native.new(
+          stream_format.width,
+          stream_format.height,
+          stream_format.framerate,
+          state.tune,
+          state.rate_control
+        )
 
       %{
         state
@@ -122,17 +130,22 @@ defmodule Membrane.VKVideo.Encoder do
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    {:ok, encoded_frames} = Native.encode(state.encoder, buffer.payload, buffer.pts)
+    {:ok, encoded_frame} = Native.encode(state.encoder, buffer.payload, buffer.pts)
 
-    Enum.map(
-      encoded_frames,
-      &{:output,
-       %Membrane.Buffer{
-         payload: &1.payload,
-         pts: Membrane.Time.nanoseconds(&1.pts_ns),
-         dts: Membrane.Time.nanoseconds(&1.pts_ns)
-       }}
-    )
+    pts =
+      if encoded_frame.pts_ns != nil,
+        do: Membrane.Time.nanoseconds(encoded_frame.pts_ns),
+        else: nil
+
+    {[
+       buffer:
+         {:output,
+          %Membrane.Buffer{
+            payload: encoded_frame.payload,
+            pts: pts,
+            dts: buffer.dts
+          }}
+     ], state}
   end
 
   @impl true

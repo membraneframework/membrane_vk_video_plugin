@@ -10,12 +10,12 @@ defmodule Encoder.NativeTest do
 
   @tag :requires_gpu
   @tag :tmp_dir
-  test "Encoder encodes raw frames in YUV format into H.264 stream", ctx do
+  test "Encoder encodes raw frames in NV12 format into H.264 stream", ctx do
     in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
     out_path = Path.join(ctx.tmp_dir, "out.h264")
 
     assert {:ok, file} = File.read(in_path)
-    {:ok, encoder_ref} = Native.new(@width, @height, @framerate)
+    {:ok, encoder_ref} = Native.new(@width, @height, @framerate, :low_latency, :encoder_default)
     raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
 
     encoded_frames =
@@ -32,13 +32,21 @@ defmodule Encoder.NativeTest do
 
   @tag :requires_gpu
   @tag :tmp_dir
-  test "Encoder encodes raw frames in YUV format into H.264 stream with desired framerate", ctx do
+  test "Encoder encodes raw frames in NV12 format into H.264 stream with desired encoder settings",
+       ctx do
     in_path = "./fixtures/ref-10.nv12" |> Path.expand(__DIR__)
     out_path = Path.join(ctx.tmp_dir, "out.h264")
 
     assert {:ok, file} = File.read(in_path)
-    rate_control = :disabled
-    {:ok, encoder_ref} = Native.new(@width, @height, @framerate, :low_latency, rate_control)
+
+    rate_control = %Membrane.VKVideo.Encoder.ConstantBitrate{
+      virtual_buffer_size_ms: 2000,
+      bitrate: 8000
+    }
+
+    {:ok, encoder_ref} =
+      Native.new(@width, @height, @framerate, :high_quality, {:constant_bitrate, rate_control})
+
     raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
 
     encoded_frames =

@@ -82,7 +82,7 @@ fn new(
     height: u32,
     frame_rate: (u32, u32),
     tune: EncoderTune,
-    rate_control_option: Option<EncoderRateControl>,
+    rate_control: EncoderRateControl,
 ) -> Result<(Atom, ResourceArc<EncoderResource>), Error> {
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
@@ -103,8 +103,6 @@ fn new(
             denominator: std::num::NonZero::new(frame_rate.1).ok_or(Error::BadArg)?,
         },
     };
-
-    let rate_control = rate_control_option.unwrap_or(EncoderRateControl::EncoderDefault);
 
     let parameters = match tune {
         EncoderTune::LowLatency => device
