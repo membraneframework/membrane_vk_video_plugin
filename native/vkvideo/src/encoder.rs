@@ -120,10 +120,7 @@ pub fn new(
         height,
     };
 
-    let resource = ResourceArc::new(Resource {
-        encoder: Some(encoder_resource),
-        decoder: None,
-    });
+    let resource = ResourceArc::new(Resource::Encoder(encoder_resource));
     Ok((ok(), resource))
 }
 
@@ -133,7 +130,7 @@ pub fn encode<'a>(
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<(Atom, EncodedFrame<'a>), Error> {
-    let encoder_resource = resource.encoder.as_ref().expect("Encoder not initialized");
+    let encoder_resource = resource.encoder().ok_or_else(|| Error::BadArg)?;
     let frame = Frame {
         data: RawFrameData {
             frame: bytes.to_vec(),

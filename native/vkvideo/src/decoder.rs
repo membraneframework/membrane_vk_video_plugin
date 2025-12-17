@@ -33,10 +33,7 @@ pub fn new() -> Result<(Atom, ResourceArc<Resource>), Error> {
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder_mutex = Mutex::new(decoder);
     let decoder_resource = DecoderResource { decoder_mutex };
-    let resource = ResourceArc::new(Resource {
-        decoder: Some(decoder_resource),
-        encoder: None,
-    });
+    let resource = ResourceArc::new(Resource::Decoder(decoder_resource));
     Ok((ok(), resource))
 }
 
@@ -47,9 +44,8 @@ pub fn decode<'a>(
     pts_ns: Option<u64>,
 ) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
     let mut decoder = resource
-        .decoder
-        .as_ref()
-        .expect("Decoder not initialized")
+        .decoder()
+        .ok_or_else(|| Error::BadArg)?
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -80,9 +76,8 @@ pub fn decode<'a>(
 
 pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<RawFrame>), Error> {
     let mut decoder = resource
-        .decoder
-        .as_ref()
-        .expect("Decoder not initialized")
+        .decoder()
+        .ok_or_else(|| Error::BadArg)?
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;

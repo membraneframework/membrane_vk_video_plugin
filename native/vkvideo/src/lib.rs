@@ -5,9 +5,25 @@ use rustler::{Atom, Binary, Env, Error, ResourceArc, Term};
 pub mod decoder;
 pub mod encoder;
 
-pub struct Resource {
-    pub decoder: Option<DecoderResource>,
-    pub encoder: Option<EncoderResource>,
+pub enum Resource {
+    Encoder(EncoderResource),
+    Decoder(DecoderResource),
+}
+
+impl Resource {
+    pub fn encoder(&self) -> Option<&EncoderResource> {
+        match self {
+            Self::Encoder(encoder_resource) => Some(encoder_resource),
+            Self::Decoder(_) => None,
+        }
+    }
+
+    pub fn decoder(&self) -> Option<&DecoderResource> {
+        match self {
+            Self::Decoder(decoder_resource) => Some(decoder_resource),
+            Self::Encoder(_) => None,
+        }
+    }
 }
 
 fn load(env: Env, _: Term) -> bool {
