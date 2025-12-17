@@ -5,7 +5,7 @@ defmodule Membrane.VKVideo.Decoder do
   """
   use Membrane.Filter
 
-  alias __MODULE__.Native
+  alias Membrane.VKVideo.Native
 
   def_input_pad :input, accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au}
   def_output_pad :output, accepted_format: %Membrane.RawVideo{pixel_format: :NV12}
@@ -18,7 +18,7 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_setup(_ctx, state) do
-    {:ok, decoder} = Native.new()
+    {:ok, decoder} = Native.new_decoder()
     state = %{state | decoder: decoder}
     {[], state}
   end
@@ -70,7 +70,7 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
-    {:ok, flushed_frames} = Native.flush(state.decoder)
+    {:ok, flushed_frames} = Native.flush_decoder(state.decoder)
     {actions, state} = Enum.flat_map_reduce(flushed_frames, state, &prepare_actions(&1, &2))
     {actions ++ [end_of_stream: :output], state}
   end

@@ -1,6 +1,6 @@
 defmodule Encoder.NativeTest do
   use ExUnit.Case, async: false
-  alias Membrane.VKVideo.Encoder.Native
+  alias Membrane.VKVideo.Native
 
   @width 1280
   @height 720
@@ -40,7 +40,7 @@ defmodule Encoder.NativeTest do
       assert {:ok, file} = File.read(in_path)
 
       {:ok, encoder_ref} =
-        Native.new(@width, @height, @framerate, unquote(tune), unquote(rate_control_ast))
+        Native.new_encoder(@width, @height, @framerate, unquote(tune), unquote(rate_control_ast))
 
       raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
 

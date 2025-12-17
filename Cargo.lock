@@ -1009,16 +1009,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "vkvideo_decoder"
-version = "0.1.0"
-dependencies = [
- "rustler",
- "vk-video",
- "wgpu",
-]
-
-[[package]]
-name = "vkvideo_encoder"
+name = "vkvideo"
 version = "0.1.0"
 dependencies = [
  "rustler",

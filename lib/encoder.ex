@@ -7,7 +7,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   require Membrane.Logger
 
-  alias __MODULE__.Native
+  alias Membrane.VKVideo.Native
 
   def_input_pad :input, accepted_format: %Membrane.RawVideo{pixel_format: :NV12}
 
@@ -68,7 +68,7 @@ defmodule Membrane.VKVideo.Encoder do
       end
 
       {:ok, encoder} =
-        Native.new(
+        Native.new_encoder(
           stream_format.width,
           stream_format.height,
           state.framerate,
@@ -93,7 +93,7 @@ defmodule Membrane.VKVideo.Encoder do
     if stream_format.width != state.width or stream_format.height != state.height or
          stream_format.framerate != state.framerate do
       {:ok, encoder} =
-        Native.new(
+        Native.new_encoder(
           stream_format.width,
           stream_format.height,
           stream_format.framerate,

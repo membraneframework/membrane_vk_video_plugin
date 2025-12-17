@@ -1,38 +1,36 @@
+use crate::Resource;
 use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
-use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary, Term};
+use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, Frame, RawFrameData};
-struct EncoderResource {
-    pub encoder_mutex: Mutex<BytesEncoder>,
-    pub width: u32,
-    pub height: u32,
-}
-
-fn load(env: Env, _: Term) -> bool {
-    rustler::resource!(EncoderResource, env)
-}
 
 rustler::atoms! {
   ok
 }
 
+pub struct EncoderResource {
+    pub encoder_mutex: Mutex<BytesEncoder>,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(NifStruct)]
 #[module = "Membrane.VKVideo.EncodedFrame"]
-struct EncodedFrame<'a> {
+pub struct EncodedFrame<'a> {
     pub payload: Binary<'a>,
     pub pts_ns: Option<u64>,
 }
 
 #[derive(NifUnitEnum)]
-enum EncoderTune {
+pub enum EncoderTune {
     LowLatency,
     HighQuality,
 }
 
 #[derive(NifStruct)]
 #[module = "Membrane.VKVideo.Encoder.VariableBitrate"]
-struct VariableBitrate {
+pub struct VariableBitrate {
     pub average_bitrate: u64,
     pub max_bitrate: u64,
     pub virtual_buffer_size_ms: u64,
@@ -40,13 +38,13 @@ struct VariableBitrate {
 
 #[derive(NifStruct)]
 #[module = "Membrane.VKVideo.Encoder.ConstantBitrate"]
-struct ConstantBitrate {
+pub struct ConstantBitrate {
     pub bitrate: u64,
     pub virtual_buffer_size_ms: u64,
 }
 
 #[derive(NifTaggedEnum)]
-enum EncoderRateControl {
+pub enum EncoderRateControl {
     EncoderDefault,
     VariableBitrate(VariableBitrate),
     ConstantBitrate(ConstantBitrate),
@@ -76,14 +74,13 @@ impl Into<RateControl> for EncoderRateControl {
     }
 }
 
-#[rustler::nif(schedule = "DirtyIo")]
-fn new(
+pub fn new(
     width: u32,
     height: u32,
     frame_rate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
-) -> Result<(Atom, ResourceArc<EncoderResource>), Error> {
+) -> Result<(Atom, ResourceArc<Resource>), Error> {
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
     let instance = vk_video::VulkanInstance::new()
@@ -117,31 +114,36 @@ fn new(
         .create_bytes_encoder(parameters)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoder_mutex = Mutex::new(encoder);
-    let resource = ResourceArc::new(EncoderResource {
+    let encoder_resource = EncoderResource {
         encoder_mutex,
         width,
         height,
+    };
+
+    let resource = ResourceArc::new(Resource {
+        encoder: Some(encoder_resource),
+        decoder: None,
     });
     Ok((ok(), resource))
 }
 
-#[rustler::nif(schedule = "DirtyIo")]
-fn encode<'a>(
+pub fn encode<'a>(
     env: Env<'a>,
-    resource: ResourceArc<EncoderResource>,
+    resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<(Atom, EncodedFrame<'a>), Error> {
+    let encoder_resource = resource.encoder.as_ref().expect("Encoder not initialized");
     let frame = Frame {
         data: RawFrameData {
             frame: bytes.to_vec(),
-            width: resource.width,
-            height: resource.height,
+            width: encoder_resource.width,
+            height: encoder_resource.height,
         },
         pts: pts_ns,
     };
 
-    let mut encoder = resource
+    let mut encoder = encoder_resource
         .encoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -163,5 +165,3 @@ fn encode<'a>(
         },
     ))
 }
-
-rustler::init!("Elixir.Membrane.VKVideo.Encoder.Native", load = load);

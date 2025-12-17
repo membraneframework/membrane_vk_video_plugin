@@ -1,22 +1,25 @@
+use crate::Resource;
+use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
 use std::sync::Mutex;
-
-use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc, Term};
 use vk_video::{parameters::DecoderParameters, BytesDecoder, EncodedInputChunk};
 
 rustler::atoms! {
   ok,
 }
-
-struct DecoderResource {
+pub struct DecoderResource {
     pub decoder_mutex: Mutex<BytesDecoder>,
 }
 
-fn load(env: Env, _: Term) -> bool {
-    rustler::resource!(DecoderResource, env)
+#[derive(NifStruct)]
+#[module = "Membrane.VKVideo.RawFrame"]
+pub struct RawFrame<'a> {
+    pub payload: Binary<'a>,
+    pub pts_ns: Option<u64>,
+    pub width: u32,
+    pub height: u32,
 }
 
-#[rustler::nif(schedule = "DirtyIo")]
-fn new() -> Result<(Atom, ResourceArc<DecoderResource>), Error> {
+pub fn new() -> Result<(Atom, ResourceArc<Resource>), Error> {
     let instance = vk_video::VulkanInstance::new()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let adapter = instance
@@ -29,27 +32,24 @@ fn new() -> Result<(Atom, ResourceArc<DecoderResource>), Error> {
         .create_bytes_decoder(DecoderParameters::default())
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder_mutex = Mutex::new(decoder);
-    let resource = ResourceArc::new(DecoderResource { decoder_mutex });
+    let decoder_resource = DecoderResource { decoder_mutex };
+    let resource = ResourceArc::new(Resource {
+        decoder: Some(decoder_resource),
+        encoder: None,
+    });
     Ok((ok(), resource))
 }
 
-#[derive(NifStruct)]
-#[module = "Membrane.VKVideo.RawFrame"]
-struct RawFrame<'a> {
-    pub payload: Binary<'a>,
-    pub pts_ns: Option<u64>,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[rustler::nif(schedule = "DirtyIo")]
-fn decode<'a>(
+pub fn decode<'a>(
     env: Env<'a>,
-    resource: ResourceArc<DecoderResource>,
+    resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
     let mut decoder = resource
+        .decoder
+        .as_ref()
+        .expect("Decoder not initialized")
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -77,9 +77,12 @@ fn decode<'a>(
     }
     Ok((ok(), results))
 }
-#[rustler::nif(schedule = "DirtyIo")]
-fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<(Atom, Vec<RawFrame>), Error> {
+
+pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<RawFrame>), Error> {
     let mut decoder = resource
+        .decoder
+        .as_ref()
+        .expect("Decoder not initialized")
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -104,5 +107,3 @@ fn flush(env: Env, resource: ResourceArc<DecoderResource>) -> Result<(Atom, Vec<
     }
     Ok((ok(), results))
 }
-
-rustler::init!("Elixir.Membrane.VKVideo.Decoder.Native", load = load);
