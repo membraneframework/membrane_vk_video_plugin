@@ -67,8 +67,11 @@ defmodule Membrane.VKVideo.Encoder do
         """)
       end
 
+      {:ok, device} = DeviceServer.get_device()
+
       {:ok, encoder} =
         Native.new_encoder(
+          device,
           stream_format.width,
           stream_format.height,
           state.framerate,
@@ -92,8 +95,11 @@ defmodule Membrane.VKVideo.Encoder do
   def handle_stream_format(:input, stream_format, _ctx, %{override_framerate?: false} = state) do
     if stream_format.width != state.width or stream_format.height != state.height or
          stream_format.framerate != state.framerate do
+      {:ok, device} = DeviceServer.get_device()
+
       {:ok, encoder} =
         Native.new_encoder(
+          device,
           stream_format.width,
           stream_format.height,
           stream_format.framerate,

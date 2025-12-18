@@ -28,7 +28,8 @@ defmodule Membrane.VKVideo.Mixfile do
 
   def application do
     [
-      extra_applications: []
+      extra_applications: [],
+      mod: {Membrane.VKVideo}
     ]
   end
 
