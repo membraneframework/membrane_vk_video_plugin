@@ -1,7 +1,7 @@
 use decoder::{DecoderResource, RawFrame};
 use encoder::{EncodedFrame, EncoderRateControl, EncoderResource, EncoderTune};
 use rustler::{Atom, Binary, Env, Error, ResourceArc, Term};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use vk_video::VulkanDevice;
 
 rustler::atoms! {
@@ -18,8 +18,10 @@ pub enum Resource {
 }
 
 pub struct DeviceResource {
-    pub device: RwLock<Arc<VulkanDevice>>,
+    pub device: Arc<VulkanDevice>,
 }
+
+impl std::panic::RefUnwindSafe for DeviceResource {}
 
 impl Resource {
     pub fn encoder(&self) -> Option<&EncoderResource> {
@@ -47,11 +49,7 @@ impl Resource {
     }
 }
 
-fn check_traits() {
-    fn is_sync_and_send<T: rustler::Resource>() {}
-    is_sync_and_send::<Resource>();
-}
-
+#[allow(non_local_definitions)]
 fn load(env: Env, _: Term) -> bool {
     rustler::resource!(Resource, env)
 }
@@ -67,9 +65,7 @@ fn create_device() -> Result<ResourceArc<Resource>, Error> {
         .create_device(wgpu::Features::empty(), wgpu::Limits::default())
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
-    let device_resource = ResourceArc::new(Resource::Device(DeviceResource {
-        device: RwLock::new(device),
-    }));
+    let device_resource = ResourceArc::new(Resource::Device(DeviceResource { device }));
     Ok(device_resource)
 }
 

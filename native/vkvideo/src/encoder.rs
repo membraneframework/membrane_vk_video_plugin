@@ -80,7 +80,7 @@ pub fn new(
     tune: EncoderTune,
     rate_control: EncoderRateControl,
 ) -> Result<(Atom, ResourceArc<Resource>), Error> {
-    let device_resource = resource.device().ok_or_else(|| Error::BadArg)?;
+    let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
 
@@ -95,17 +95,14 @@ pub fn new(
 
     let parameters = match tune {
         EncoderTune::LowLatency => device_resource
-            .device
             .encoder_parameters_low_latency(video_parameters, rate_control.into())
             .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
         EncoderTune::HighQuality => device_resource
-            .device
             .encoder_parameters_high_quality(video_parameters, rate_control.into())
             .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
     };
 
     let encoder = device_resource
-        .device
         .create_bytes_encoder(parameters)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoder_mutex = Mutex::new(encoder);
