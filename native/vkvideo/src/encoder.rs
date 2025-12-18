@@ -1,13 +1,10 @@
+use crate::ok;
 use crate::Resource;
 use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, Frame, RawFrameData};
-
-rustler::atoms! {
-  ok
-}
 
 pub struct EncoderResource {
     pub encoder_mutex: Mutex<BytesEncoder>,
@@ -75,22 +72,17 @@ impl Into<RateControl> for EncoderRateControl {
 }
 
 pub fn new(
+    _env: Env,
+    resource: ResourceArc<Resource>,
     width: u32,
     height: u32,
     frame_rate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
 ) -> Result<(Atom, ResourceArc<Resource>), Error> {
+    let device_resource = resource.device().ok_or_else(|| Error::BadArg)?;
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
-    let instance = vk_video::VulkanInstance::new()
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let adapter = instance
-        .create_adapter(None)
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let device = adapter
-        .create_device(wgpu::Features::empty(), wgpu::Limits::default())
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let video_parameters = VideoParameters {
         width: non_zero_width,
@@ -102,15 +94,18 @@ pub fn new(
     };
 
     let parameters = match tune {
-        EncoderTune::LowLatency => device
+        EncoderTune::LowLatency => device_resource
+            .device
             .encoder_parameters_low_latency(video_parameters, rate_control.into())
             .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
-        EncoderTune::HighQuality => device
+        EncoderTune::HighQuality => device_resource
+            .device
             .encoder_parameters_high_quality(video_parameters, rate_control.into())
             .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
     };
 
-    let encoder = device
+    let encoder = device_resource
+        .device
         .create_bytes_encoder(parameters)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoder_mutex = Mutex::new(encoder);

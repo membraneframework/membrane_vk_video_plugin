@@ -1,6 +1,12 @@
 use decoder::{DecoderResource, RawFrame};
 use encoder::{EncodedFrame, EncoderRateControl, EncoderResource, EncoderTune};
 use rustler::{Atom, Binary, Env, Error, ResourceArc, Term};
+use std::sync::{Arc, RwLock};
+use vk_video::VulkanDevice;
+
+rustler::atoms! {
+  ok,
+}
 
 pub mod decoder;
 pub mod encoder;
@@ -8,6 +14,11 @@ pub mod encoder;
 pub enum Resource {
     Encoder(EncoderResource),
     Decoder(DecoderResource),
+    Device(DeviceResource),
+}
+
+pub struct DeviceResource {
+    pub device: RwLock<Arc<VulkanDevice>>,
 }
 
 impl Resource {
@@ -15,6 +26,7 @@ impl Resource {
         match self {
             Self::Encoder(encoder_resource) => Some(encoder_resource),
             Self::Decoder(_) => None,
+            Self::Device(_) => None,
         }
     }
 
@@ -22,8 +34,22 @@ impl Resource {
         match self {
             Self::Decoder(decoder_resource) => Some(decoder_resource),
             Self::Encoder(_) => None,
+            Self::Device(_) => None,
         }
     }
+
+    pub fn device(&self) -> Option<&DeviceResource> {
+        match self {
+            Self::Device(device_resource) => Some(device_resource),
+            Self::Encoder(_) => None,
+            Self::Decoder(_) => None,
+        }
+    }
+}
+
+fn check_traits() {
+    fn is_sync_and_send<T: rustler::Resource>() {}
+    is_sync_and_send::<Resource>();
 }
 
 fn load(env: Env, _: Term) -> bool {
@@ -31,8 +57,28 @@ fn load(env: Env, _: Term) -> bool {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-fn new_decoder() -> Result<(Atom, ResourceArc<Resource>), Error> {
-    decoder::new()
+fn create_device() -> Result<ResourceArc<Resource>, Error> {
+    let instance = vk_video::VulkanInstance::new()
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+    let adapter = instance
+        .create_adapter(None)
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+    let device = adapter
+        .create_device(wgpu::Features::empty(), wgpu::Limits::default())
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let device_resource = ResourceArc::new(Resource::Device(DeviceResource {
+        device: RwLock::new(device),
+    }));
+    Ok(device_resource)
+}
+
+#[rustler::nif(schedule = "DirtyIo")]
+fn new_decoder(
+    env: Env,
+    resource: ResourceArc<Resource>,
+) -> Result<(Atom, ResourceArc<Resource>), Error> {
+    decoder::new(env, resource)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
@@ -55,13 +101,15 @@ pub fn flush_decoder(
 
 #[rustler::nif(schedule = "DirtyIo")]
 fn new_encoder(
+    env: Env,
+    resource: ResourceArc<Resource>,
     width: u32,
     height: u32,
     frame_rate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
 ) -> Result<(Atom, ResourceArc<Resource>), Error> {
-    encoder::new(width, height, frame_rate, tune, rate_control)
+    encoder::new(env, resource, width, height, frame_rate, tune, rate_control)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]

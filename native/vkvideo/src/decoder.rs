@@ -1,11 +1,9 @@
+use crate::ok;
 use crate::Resource;
 use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
 use std::sync::Mutex;
 use vk_video::{parameters::DecoderParameters, BytesDecoder, EncodedInputChunk};
 
-rustler::atoms! {
-  ok,
-}
 pub struct DecoderResource {
     pub decoder_mutex: Mutex<BytesDecoder>,
 }
@@ -19,16 +17,14 @@ pub struct RawFrame<'a> {
     pub height: u32,
 }
 
-pub fn new() -> Result<(Atom, ResourceArc<Resource>), Error> {
-    let instance = vk_video::VulkanInstance::new()
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let adapter = instance
-        .create_adapter(None)
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let device = adapter
-        .create_device(wgpu::Features::empty(), wgpu::Limits::default())
-        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let decoder = device
+pub fn new(
+    _env: Env,
+    resource: ResourceArc<Resource>,
+) -> Result<(Atom, ResourceArc<Resource>), Error> {
+    let decoder = resource
+        .device()
+        .ok_or_else(|| Error::BadArg)?
+        .device
         .create_bytes_decoder(DecoderParameters::default())
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder_mutex = Mutex::new(decoder);
