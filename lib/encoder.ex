@@ -34,8 +34,8 @@ defmodule Membrane.VKVideo.Encoder do
                 spec:
                   :encoder_default
                   | :disabled
-                  | {:variable_bitrate, Membrane.VKVideo.Encoder.VariableBitrate.t()}
-                  | {:constant_bitrate, Membrane.VKVideo.Encoder.ConstantBitrate.t()},
+                  | {:variable_bitrate, __MODULE__.VariableBitrate.t()}
+                  | {:constant_bitrate, __MODULE__.ConstantBitrate.t()},
                 default: :encoder_default,
                 description: """
                 Specifies which rate control mechanism should by used by the encoder.
