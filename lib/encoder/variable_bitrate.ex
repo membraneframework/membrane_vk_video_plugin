@@ -7,7 +7,7 @@ defmodule Membrane.VKVideo.Encoder.VariableBitrate do
   average over the sequence; expressed in bits per second.
   * max_bitrate - Maximum allowed bitrate in VBR encoding; caps peak bitrate to prevent excessive
   spikes while maintaining average bitrate constraints; expressed in bits per second.
-  * virtual_buffer_size_ms - virtual buffer duration for rate control smoothing; larger values increase bitrate stability, smaller values improve responsiveness to scene changes; expressed in milliseconds.
+  * virtual_buffer_size_ms - virtual buffer duration for rate control smoothing; larger values increase bitrate stability, smaller values improve responsiveness to scene changes; expressed in milliseconds, defaults to 2 seconds.
   """
 
   @type t :: %__MODULE__{

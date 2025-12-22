@@ -73,7 +73,9 @@ defmodule Encoder.Test do
               height: @height,
               framerate: {@framerate_numerator, 1}
             })
-            |> child(:encoder, %Membrane.VKVideo.Encoder{framerate: {@framerate_numerator, 1}})
+            |> child(:encoder, %Membrane.VKVideo.Encoder{
+              approx_framerate: {@framerate_numerator, 1}
+            })
             |> child(:sink, Sink)
         )
 
@@ -112,17 +114,11 @@ defmodule Encoder.Test do
               width: @width,
               height: @height
             })
-            |> child(:encoder, %Membrane.VKVideo.Encoder{framerate: {@framerate_numerator, 1}})
+            |> child(:encoder, %Membrane.VKVideo.Encoder{
+              approx_framerate: {@framerate_numerator, 1}
+            })
             |> child(:sink, %Membrane.File.Sink{location: out_path})
         )
-
-      # assert_sink_playing(pid, :sink)
-      #
-      # assert_sink_stream_format(
-      #   pid,
-      #   :sink,
-      #   %Membrane.H264{width: 1280, height: 720, alignment: :au, stream_structure: :annexb}
-      # )
 
       assert_end_of_stream(pid, :sink, :input)
       Pipeline.terminate(pid)
@@ -151,14 +147,6 @@ defmodule Encoder.Test do
             |> child(:encoder, Membrane.VKVideo.Encoder)
             |> child(:sink, %Membrane.File.Sink{location: out_path})
         )
-
-      # assert_sink_playing(pid, :sink)
-      #
-      # assert_sink_stream_format(
-      #   pid,
-      #   :sink,
-      #   %Membrane.H264{width: 1280, height: 720, alignment: :au, stream_structure: :annexb}
-      # )
 
       assert_end_of_stream(pid, :sink, :input)
 
