@@ -22,20 +22,21 @@ defmodule Membrane.VKVideo.Encoder do
                 important in case of livestreams) or for higher quality (applicable to offline encoding).
                 """
               ],
-              framerate: [
+              approx_framerate: [
                 spec: {non_neg_integer(), pos_integer()} | nil,
                 default: nil,
                 description: """
                 Framerate of the stream expressed in number of frames per second.
-                If nil, the framerate will be read from the stream format's structure.
+                It's only used by the rate control mechanism and therefore it does not need to be an exact
+                value. If nil, the framerate will be read from the stream format's structure.
                 """
               ],
               rate_control: [
                 spec:
                   :encoder_default
                   | :disabled
-                  | {:variable_bitrate, Membrane.VKVideo.Encoder.VariableBitrate.t()}
-                  | {:constant_bitrate, Membrane.VKVideo.Encoder.ConstantBitrate.t()},
+                  | {:variable_bitrate, __MODULE__.VariableBitrate.t()}
+                  | {:constant_bitrate, __MODULE__.ConstantBitrate.t()},
                 default: :encoder_default,
                 description: """
                 Specifies which rate control mechanism should by used by the encoder.
@@ -48,8 +49,8 @@ defmodule Membrane.VKVideo.Encoder do
       encoder: nil,
       width: nil,
       height: nil,
-      override_framerate?: opts.framerate != nil,
-      framerate: opts.framerate,
+      override_framerate?: opts.approx_framerate != nil,
+      framerate: opts.approx_framerate,
       rate_control: opts.rate_control,
       tune: opts.tune
     }
@@ -58,69 +59,45 @@ defmodule Membrane.VKVideo.Encoder do
   end
 
   @impl true
-  def handle_stream_format(:input, stream_format, _ctx, %{override_framerate?: true} = state) do
-    if stream_format.width != state.width or stream_format.height != state.height do
-      if stream_format.framerate != nil and stream_format.framerate != state.framerate do
-        Membrane.Logger.warning("""
-        Framerate received within stream format: #{inspect(stream_format.framerate)} was overriden by the value provided via options:
-        #{inspect(state.framerate)}
-        """)
-      end
-
-      {:ok, device} = DeviceServer.get_device()
-
-      {:ok, encoder} =
-        Native.new_encoder(
-          device,
-          stream_format.width,
-          stream_format.height,
-          state.framerate,
-          state.tune,
-          state.rate_control
-        )
-
-      %{
+  def handle_stream_format(:input, stream_format, _ctx, state) do
+    cond do
+      state.override_framerate? and
+          (stream_format.width != state.width or
+             stream_format.height != state.height) ->
         state
-        | encoder: encoder,
-          width: stream_format.width,
-          height: stream_format.height
-      }
-      |> send_stream_format()
-    else
-      {[], state}
+        |> put_in([:width], stream_format.width)
+        |> put_in([:height], stream_format.height)
+        |> spawn_encoder()
+
+      not state.override_framerate? and
+          (stream_format.width != state.width or stream_format.height != state.height or
+             stream_format.framerate != state.framerate) ->
+        state
+        |> put_in([:width], stream_format.width)
+        |> put_in([:height], stream_format.height)
+        |> put_in([:framerate], stream_format.framerate)
+        |> spawn_encoder()
+
+      true ->
+        {[], state}
     end
   end
 
-  @impl true
-  def handle_stream_format(:input, stream_format, _ctx, %{override_framerate?: false} = state) do
-    if stream_format.width != state.width or stream_format.height != state.height or
-         stream_format.framerate != state.framerate do
-      {:ok, device} = DeviceServer.get_device()
+  defp spawn_encoder(state) do
+    {:ok, device} = DeviceServer.get_device()
+    
+    {:ok, encoder} =
+      Native.new_encoder(
+        device,
+        state.width,
+        state.height,
+        state.framerate,
+        state.tune,
+        state.rate_control
+      )
 
-      {:ok, encoder} =
-        Native.new_encoder(
-          device,
-          stream_format.width,
-          stream_format.height,
-          stream_format.framerate,
-          state.tune,
-          state.rate_control
-        )
+    state = put_in(state, [:encoder], encoder)
 
-      %{
-        state
-        | encoder: encoder,
-          width: stream_format.width,
-          height: stream_format.height,
-          framerate: stream_format.framerate
-      }
-      |> send_stream_format()
-    else
-      {[], state}
-    end
-  end
-
-  defp send_stream_format(state) do
     {[
        stream_format:
          {:output,
