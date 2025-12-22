@@ -7,7 +7,7 @@ use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, Frame, RawFrameData};
 
 pub struct EncoderResource {
-    pub encoder_mutex: Mutex<BytesEncoder>,
+    pub encoder_mutex: Mutex<Option<BytesEncoder>>,
     pub width: u32,
     pub height: u32,
 }
@@ -105,7 +105,7 @@ pub fn new(
     let encoder = device_resource
         .create_bytes_encoder(parameters)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let encoder_mutex = Mutex::new(encoder);
+    let encoder_mutex = Mutex::new(Some(encoder));
     let encoder_resource = EncoderResource {
         encoder_mutex,
         width,
@@ -132,10 +132,12 @@ pub fn encode<'a>(
         pts: pts_ns,
     };
 
-    let mut encoder = encoder_resource
+    let mut guard = encoder_resource
         .encoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let encoder = guard.as_mut().ok_or(Error::BadArg)?;
 
     let encoded_frame = encoder
         .encode(&frame, false)

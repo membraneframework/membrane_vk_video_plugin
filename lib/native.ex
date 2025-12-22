@@ -46,4 +46,7 @@ defmodule Membrane.VKVideo.Native do
   @spec encode(t(), binary(), pts_ns :: non_neg_integer() | nil) ::
           {:ok, encoded_frame()} | no_return()
   def encode(_encoder, _raw_frame, _pts \\ nil), do: :erlang.nif_error(:nif_not_loaded)
+
+  @spec destroy(t()) :: :ok
+  def destroy(_resource), do: :erlang.nif_error(:nif_not_loaded)
 end

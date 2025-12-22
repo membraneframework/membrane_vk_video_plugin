@@ -1,6 +1,7 @@
-defmodule Membrane.VKVideo.DecoderServer do
+defmodule Membrane.VKVideo.DeviceServer do
   @moduledoc false
   use GenServer
+  alias Membrane.VKVideo.Native
 
   @impl true
   def init(_opts) do
@@ -22,6 +23,6 @@ defmodule Membrane.VKVideo.DecoderServer do
 
   @spec get_device() :: {:ok, Native.t()} | no_return()
   def get_device() do
-    GenServer.call(__MODULE__, :get_device)
+    GenServer.call(DeviceServer, :get_device)
   end
 end

@@ -7,7 +7,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   require Membrane.Logger
 
-  alias Membrane.VKVideo.Native
+  alias Membrane.VKVideo.{DeviceServer, Native}
 
   def_input_pad :input, accepted_format: %Membrane.RawVideo{pixel_format: :NV12}
 
@@ -156,6 +156,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
+    :ok = Native.destroy(state.encoder)
     state = %{state | encoder: nil}
     {[end_of_stream: :output], state}
   end

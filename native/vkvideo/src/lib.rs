@@ -27,24 +27,21 @@ impl Resource {
     pub fn encoder(&self) -> Option<&EncoderResource> {
         match self {
             Self::Encoder(encoder_resource) => Some(encoder_resource),
-            Self::Decoder(_) => None,
-            Self::Device(_) => None,
+            _ => None,
         }
     }
 
     pub fn decoder(&self) -> Option<&DecoderResource> {
         match self {
             Self::Decoder(decoder_resource) => Some(decoder_resource),
-            Self::Encoder(_) => None,
-            Self::Device(_) => None,
+            _ => None,
         }
     }
 
     pub fn device(&self) -> Option<&DeviceResource> {
         match self {
             Self::Device(device_resource) => Some(device_resource),
-            Self::Encoder(_) => None,
-            Self::Decoder(_) => None,
+            _ => None,
         }
     }
 }
@@ -55,7 +52,7 @@ fn load(env: Env, _: Term) -> bool {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-fn create_device() -> Result<ResourceArc<Resource>, Error> {
+fn create_device() -> Result<(Atom, ResourceArc<Resource>), Error> {
     let instance = vk_video::VulkanInstance::new()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let adapter = instance
@@ -66,7 +63,7 @@ fn create_device() -> Result<ResourceArc<Resource>, Error> {
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let device_resource = ResourceArc::new(Resource::Device(DeviceResource { device }));
-    Ok(device_resource)
+    Ok((ok(), device_resource))
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
@@ -116,6 +113,19 @@ fn encode<'a>(
     pts_ns: Option<u64>,
 ) -> Result<(Atom, EncodedFrame<'a>), Error> {
     encoder::encode(env, resource, bytes, pts_ns)
+}
+
+#[rustler::nif(schedule = "DirtyIo")]
+fn destroy<'a>(env: Env<'a>, resource: ResourceArc<Resource>) -> Result<Atom, Error> {
+    if let Resource::Encoder(encoder) = &*resource {
+        let mut encoder = encoder
+            .encoder_mutex
+            .lock()
+            .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+        *encoder = None;
+    }
+
+    Ok(ok())
 }
 
 rustler::init!("Elixir.Membrane.VKVideo.Native", load = load);
