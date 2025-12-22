@@ -85,7 +85,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   defp spawn_encoder(state) do
     {:ok, encoder} =
-      Native.new(
+      Native.new_encoder(
         state.width,
         state.height,
         state.framerate,
