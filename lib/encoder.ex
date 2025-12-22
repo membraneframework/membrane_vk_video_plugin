@@ -85,7 +85,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   defp spawn_encoder(state) do
     {:ok, device} = DeviceServer.get_device()
-    
+
     {:ok, encoder} =
       Native.new_encoder(
         device,
