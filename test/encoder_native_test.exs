@@ -1,6 +1,6 @@
 defmodule Encoder.NativeTest do
   use ExUnit.Case, async: false
-  alias Membrane.VKVideo.Native
+  alias Membrane.VKVideo.{DeviceServer, Native}
 
   @width 1280
   @height 720
@@ -39,8 +39,17 @@ defmodule Encoder.NativeTest do
 
       assert {:ok, file} = File.read(in_path)
 
+      {:ok, device} = DeviceServer.get_device()
+
       {:ok, encoder_ref} =
-        Native.new_encoder(@width, @height, @framerate, unquote(tune), unquote(rate_control_ast))
+        Native.new_encoder(
+          device,
+          @width,
+          @height,
+          @framerate,
+          unquote(tune),
+          unquote(rate_control_ast)
+        )
 
       raw_frames = for <<chunk::size(@frame_size_in_bytes)-binary <- file>>, do: chunk
 
@@ -53,6 +62,8 @@ defmodule Encoder.NativeTest do
         end)
 
       assert File.read!(ref_path) == Enum.join(encoded_frames)
+
+      Native.destroy(encoder_ref)
     end
   end)
 end

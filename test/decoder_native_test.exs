@@ -1,13 +1,14 @@
 defmodule Decoder.NativeTest do
   use ExUnit.Case, async: false
-  alias Membrane.VKVideo.Native
+  alias Membrane.VKVideo.{DeviceServer, Native}
 
   @tag :requires_gpu
   test "Decoder decodes H.264 stream" do
     in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 
     assert {:ok, file} = File.read(in_path)
-    {:ok, decoder_ref} = Native.new_decoder()
+    {:ok, device} = DeviceServer.get_device()
+    {:ok, decoder_ref} = Native.new_decoder(device)
     {:ok, decoded_frames} = Native.decode(decoder_ref, file, 0)
     {:ok, flushed_frames} = Native.flush_decoder(decoder_ref)
     all_frames = decoded_frames ++ flushed_frames
@@ -17,5 +18,6 @@ defmodule Decoder.NativeTest do
     assert first_frame.width == 1280
     assert first_frame.height == 720
     assert <<213, 213, 213, 213, _rest::binary>> = first_frame.payload
+    Native.destroy(decoder_ref)
   end
 end
