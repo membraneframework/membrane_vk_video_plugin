@@ -28,7 +28,8 @@ defmodule Membrane.VKVideo.Encoder do
                 description: """
                 Framerate of the stream expressed in number of frames per second.
                 It's only used by the rate control mechanism and therefore it does not need to be an exact
-                value. If nil, the framerate will be read from the stream format's structure.
+                value. If nil, the framerate will be read from the stream format's structure or set
+                to fixed value of 30 frames per second if framerate is not provided by the stream format.
                 """
               ],
               rate_control: [
@@ -64,18 +65,30 @@ defmodule Membrane.VKVideo.Encoder do
       state.override_framerate? and
           (stream_format.width != state.width or
              stream_format.height != state.height) ->
-        state
-        |> put_in([:width], stream_format.width)
-        |> put_in([:height], stream_format.height)
+        %{
+          state
+          | width: stream_format.width,
+            height: stream_format.height
+        }
         |> spawn_encoder()
 
       not state.override_framerate? and
           (stream_format.width != state.width or stream_format.height != state.height or
              stream_format.framerate != state.framerate) ->
-        state
-        |> put_in([:width], stream_format.width)
-        |> put_in([:height], stream_format.height)
-        |> put_in([:framerate], stream_format.framerate)
+        if is_nil(stream_format.framerate) and requires_framerate?(state.rate_control) do
+          Membrane.Logger.warning("""
+              Framerate is required when using #{inspect(elem(state.rate_control, 0))} rate control but it
+              wasn't provided in the stream format nor via options. Please provide approximate framerate
+              using `approx_framerate` option of the element.
+          """)
+        end
+
+        %{
+          state
+          | width: stream_format.width,
+            height: stream_format.height,
+            framerate: stream_format.framerate || {30, 1}
+        }
         |> spawn_encoder()
 
       true ->
@@ -98,18 +111,27 @@ defmodule Membrane.VKVideo.Encoder do
 
     state = put_in(state, [:encoder], encoder)
 
-    {[
-       stream_format:
-         {:output,
-          %Membrane.H264{
-            stream_structure: :annexb,
-            alignment: :au,
-            width: state.width,
-            height: state.height,
-            framerate: state.framerate
-          }}
-     ], state}
+    stream_format =
+      %Membrane.H264{
+        stream_structure: :annexb,
+        alignment: :au,
+        width: state.width,
+        height: state.height
+      }
+
+    stream_format =
+      if not state.override_framerate? do
+        %{stream_format | framerate: state.framerate}
+      else
+        stream_format
+      end
+
+    {[stream_format: {:output, stream_format}], state}
   end
+
+  defp requires_framerate?({:constant_bitrate, _constant_bitrate}), do: true
+  defp requires_framerate?({:variable_bitrate, _variable_bitrate}), do: true
+  defp requires_framerate?(_other_rate_control), do: false
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
