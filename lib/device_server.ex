@@ -23,6 +23,6 @@ defmodule Membrane.VKVideo.DeviceServer do
 
   @spec get_device() :: {:ok, Native.t()} | no_return()
   def get_device() do
-    GenServer.call(DeviceServer, :get_device)
+    GenServer.call(__MODULE__, :get_device)
   end
 end
