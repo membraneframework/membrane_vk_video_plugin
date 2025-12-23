@@ -75,19 +75,11 @@ defmodule Membrane.VKVideo.Encoder do
       not state.override_framerate? and
           (stream_format.width != state.width or stream_format.height != state.height or
              stream_format.framerate != state.framerate) ->
-        if is_nil(stream_format.framerate) and requires_framerate?(state.rate_control) do
-          Membrane.Logger.warning("""
-              Framerate is required when using #{inspect(elem(state.rate_control, 0))} rate control but it
-              wasn't provided in the stream format nor via options. Please provide approximate framerate
-              using `approx_framerate` option of the element.
-          """)
-        end
-
         %{
           state
           | width: stream_format.width,
             height: stream_format.height,
-            framerate: stream_format.framerate || {30, 1}
+            framerate: resolve_framerate(stream_format, state)
         }
         |> spawn_encoder()
 
@@ -120,13 +112,25 @@ defmodule Membrane.VKVideo.Encoder do
       }
 
     stream_format =
-      if not state.override_framerate? do
-        %{stream_format | framerate: state.framerate}
-      else
+      if state.override_framerate? do
         stream_format
+      else
+        %{stream_format | framerate: state.framerate}
       end
 
     {[stream_format: {:output, stream_format}], state}
+  end
+
+  defp resolve_framerate(stream_format, state) do
+    if is_nil(stream_format.framerate) and requires_framerate?(state.rate_control) do
+      Membrane.Logger.warning("""
+          Framerate is required when using #{inspect(elem(state.rate_control, 0))} rate control but it
+          wasn't provided in the stream format nor via options. Please provide approximate framerate
+          using `approx_framerate` option of the element.
+      """)
+    end
+
+    stream_format.framerate || {30, 1}
   end
 
   defp requires_framerate?({:constant_bitrate, _constant_bitrate}), do: true
