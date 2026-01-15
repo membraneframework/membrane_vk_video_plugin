@@ -106,13 +106,13 @@ pub fn new(
         .create_bytes_encoder(parameters)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let encoder_mutex = Mutex::new(Some(encoder));
-    let encoder_resource = EncoderResource {
+    let encoder = EncoderResource {
         encoder_mutex,
         width,
         height,
     };
 
-    let resource = ResourceArc::new(Resource::Encoder(encoder_resource));
+    let resource = ResourceArc::new(Resource::Encoder(encoder));
     Ok((ok(), resource))
 }
 
@@ -122,17 +122,17 @@ pub fn encode<'a>(
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<(Atom, EncodedFrame<'a>), Error> {
-    let encoder_resource = resource.encoder().ok_or_else(|| Error::BadArg)?;
+    let encoder = resource.encoder().ok_or_else(|| Error::BadArg)?;
     let frame = Frame {
         data: RawFrameData {
             frame: bytes.to_vec(),
-            width: encoder_resource.width,
-            height: encoder_resource.height,
+            width: encoder.width,
+            height: encoder.height,
         },
         pts: pts_ns,
     };
 
-    let mut guard = encoder_resource
+    let mut guard = encoder
         .encoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;

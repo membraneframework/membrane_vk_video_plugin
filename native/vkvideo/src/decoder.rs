@@ -28,8 +28,8 @@ pub fn new(
         .create_bytes_decoder(DecoderParameters::default())
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
     let decoder_mutex = Mutex::new(decoder);
-    let decoder_resource = DecoderResource { decoder_mutex };
-    let resource = ResourceArc::new(Resource::Decoder(decoder_resource));
+    let decoder = DecoderResource { decoder_mutex };
+    let resource = ResourceArc::new(Resource::Decoder(decoder));
     Ok((ok(), resource))
 }
 
