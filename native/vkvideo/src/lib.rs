@@ -1,5 +1,5 @@
 use decoder::{DecoderResource, RawFrame};
-use encoder::{EncodedFrame, EncoderRateControl, EncoderResource, EncoderTune};
+use encoder::{EncoderRateControl, EncoderResource, EncoderTune};
 use rustler::{Atom, Binary, Env, Error, ResourceArc, Term};
 use std::sync::Arc;
 use vk_video::VulkanDevice;
@@ -44,6 +44,13 @@ impl Resource {
             _ => None,
         }
     }
+}
+
+#[derive(NifStruct)]
+#[module = "Membrane.VKVideo.EncodedFrame"]
+pub struct EncodedFrame<'a> {
+    pub payload: Binary<'a>,
+    pub pts_ns: Option<u64>,
 }
 
 #[allow(non_local_definitions)]
@@ -127,5 +134,36 @@ fn destroy<'a>(env: Env<'a>, resource: ResourceArc<Resource>) -> Result<Atom, Er
 
     Ok(ok())
 }
+
+// #[rustler::nif(schedule = "DirtyIo")]
+// fn new_transcoder(
+//     env: Env,
+//     resource: ResourceArc<Resource>,
+//     width: u32,
+//     height: u32,
+//     frame_rate: (u32, u32),
+//     tune: EncoderTune,
+//     rate_control: EncoderRateControl,
+// ) -> Result<(Atom, ResourceArc<Resource>), Error> {
+//     encoder::new(env, resource, width, height, frame_rate, tune, rate_control)
+// }
+
+// #[rustler::nif(schedule = "DirtyIo")]
+// fn transcode<'a>(
+//     env: Env<'a>,
+//     resource: ResourceArc<Resource>,
+//     bytes: Binary,
+//     pts_ns: Option<u64>,
+// ) -> Result<(Atom, EncodedFrame<'a>), Error> {
+//     encoder::encode(env, resource, bytes, pts_ns)
+// }
+
+// #[rustler::nif(schedule = "DirtyIo")]
+// pub fn flush_transcoder(
+//     env: Env,
+//     resource: ResourceArc<Resource>,
+// ) -> Result<(Atom, Vec<RawFrame>), Error> {
+//     transcoder::flush(env, resource)
+// }
 
 rustler::init!("Elixir.Membrane.VKVideo.Native", load = load);

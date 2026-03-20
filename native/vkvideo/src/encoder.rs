@@ -1,5 +1,4 @@
-use crate::ok;
-use crate::Resource;
+use crate::{ok, EncodedFrame, Resource};
 use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary};
 use std::sync::Mutex;
@@ -10,13 +9,6 @@ pub struct EncoderResource {
     pub encoder_mutex: Mutex<Option<BytesEncoder>>,
     pub width: u32,
     pub height: u32,
-}
-
-#[derive(NifStruct)]
-#[module = "Membrane.VKVideo.EncodedFrame"]
-pub struct EncodedFrame<'a> {
-    pub payload: Binary<'a>,
-    pub pts_ns: Option<u64>,
 }
 
 #[derive(NifUnitEnum)]
