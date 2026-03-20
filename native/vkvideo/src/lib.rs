@@ -2,7 +2,10 @@ use decoder::{DecoderResource, RawFrame};
 use encoder::{EncoderRateControl, EncoderResource, EncoderTune};
 use rustler::{Atom, Binary, Env, Error, ResourceArc, Term};
 use std::sync::Arc;
-use vk_video::VulkanDevice;
+use vk_video::{
+    parameters::{VulkanAdapterDescriptor, VulkanDeviceDescriptor},
+    VulkanDevice,
+};
 
 rustler::atoms! {
   ok,
@@ -46,7 +49,7 @@ impl Resource {
     }
 }
 
-#[derive(NifStruct)]
+#[derive(rustler::NifStruct)]
 #[module = "Membrane.VKVideo.EncodedFrame"]
 pub struct EncodedFrame<'a> {
     pub payload: Binary<'a>,
@@ -62,11 +65,23 @@ fn load(env: Env, _: Term) -> bool {
 fn create_device() -> Result<(Atom, ResourceArc<Resource>), Error> {
     let instance = vk_video::VulkanInstance::new()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let adapter_descriptor = VulkanAdapterDescriptor {
+        supports_decoding: true,
+        supports_encoding: true,
+        compatible_surface: None,
+    };
     let adapter = instance
-        .create_adapter(None)
+        .create_adapter(&adapter_descriptor)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let device_descriptor = VulkanDeviceDescriptor {
+        wgpu_features: wgpu::Features::empty(),
+        wgpu_limits: wgpu::Limits::default(),
+        wgpu_experimental_features: wgpu::ExperimentalFeatures::disabled(),
+    };
     let device = adapter
-        .create_device(wgpu::Features::empty(), wgpu::Limits::default())
+        .create_device(&device_descriptor)
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let device_resource = ResourceArc::new(Resource::Device(DeviceResource { device }));

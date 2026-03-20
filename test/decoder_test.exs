@@ -4,6 +4,8 @@ defmodule Decoder.Test do
   import Membrane.Testing.Assertions
   alias Membrane.Testing.{Pipeline, Sink}
 
+  @take_refs_snapshot System.get_env("TAKE_TEST_REFERENCES_SNAPSHOT", "") != ""
+
   @framerate_numerator 25
   @frame_duration_ms div(1000, @framerate_numerator)
 
@@ -61,6 +63,7 @@ defmodule Decoder.Test do
 
       assert_end_of_stream(pid, :sink, :input)
       Pipeline.terminate(pid)
+      if @take_refs_snapshot, do: File.write!(ref_path, File.read!(out_path))
       assert File.read!(out_path) == File.read!(ref_path)
     end
   end

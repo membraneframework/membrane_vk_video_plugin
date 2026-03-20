@@ -4,6 +4,8 @@ defmodule Encoder.Test do
   import Membrane.Testing.Assertions
   alias Membrane.Testing.{Pipeline, Sink}
 
+  @take_refs_snapshot System.get_env("TAKE_TEST_REFERENCES_SNAPSHOT", "") != ""
+
   @width 1280
   @height 720
   # number of bytes per sample is 1.5 since we use 420 chroma subsampling
@@ -122,6 +124,8 @@ defmodule Encoder.Test do
 
       assert_end_of_stream(pid, :sink, :input)
       Pipeline.terminate(pid)
+
+      if @take_refs_snapshot, do: File.write!(ref_path, File.read!(out_path))
       assert File.read!(out_path) == File.read!(ref_path)
     end
 
@@ -152,6 +156,7 @@ defmodule Encoder.Test do
 
       Pipeline.terminate(pid)
 
+      if @take_refs_snapshot, do: File.write!(ref_path, File.read!(out_path))
       assert File.read!(out_path) == File.read!(ref_path)
     end
   end
