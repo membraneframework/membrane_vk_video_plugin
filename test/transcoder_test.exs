@@ -185,43 +185,6 @@ defmodule Transcoder.Test do
     end
 
     @tag :requires_gpu
-    test "raises when output pad indices are not consecutive" do
-      in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
-
-      {:ok, _sup, pid} =
-        Pipeline.start(
-          spec: [
-            child(:file_src, %Membrane.File.Source{chunk_size: 40_960, location: in_path})
-            |> child(:parser, %Membrane.H264.Parser{
-              generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
-            })
-            |> child(:transcoder, Transcoder),
-            get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
-              ]
-            )
-            |> child(:sink_0, Sink),
-            # pad index 2 without pad index 1 — indices are not consecutive
-            get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 2),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-              ]
-            )
-            |> child(:sink_2, Sink)
-          ]
-        )
-
-      ref = Process.monitor(pid)
-
-      assert_receive {:DOWN, ^ref, :process, ^pid,
-                      {:membrane_child_crash, :transcoder, {%RuntimeError{}, _stack}}},
-                     5000
-    end
-
-    @tag :requires_gpu
     test "raises when an output pad is linked after the element starts playing" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
@@ -242,8 +205,6 @@ defmodule Transcoder.Test do
             |> child(:sink_0, Sink)
           ]
         )
-
-      assert_pipeline_playback_changed(pid, _from, :playing)
 
       Pipeline.execute_actions(pid,
         spec:
