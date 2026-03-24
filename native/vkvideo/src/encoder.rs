@@ -3,7 +3,7 @@ use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
-use vk_video::{BytesEncoder, Frame, RawFrameData};
+use vk_video::{BytesEncoder, InputFrame, RawFrameData};
 
 pub struct EncoderResource {
     pub encoder_mutex: Mutex<Option<BytesEncoder>>,
@@ -11,13 +11,13 @@ pub struct EncoderResource {
     pub height: u32,
 }
 
-#[derive(NifUnitEnum)]
+#[derive(NifUnitEnum, Clone, Copy)]
 pub enum EncoderTune {
     LowLatency,
     HighQuality,
 }
 
-#[derive(NifStruct)]
+#[derive(NifStruct, Clone, Copy)]
 #[module = "Membrane.VKVideo.Encoder.VariableBitrate"]
 pub struct VariableBitrate {
     pub average_bitrate: u64,
@@ -25,14 +25,14 @@ pub struct VariableBitrate {
     pub virtual_buffer_size_ms: u64,
 }
 
-#[derive(NifStruct)]
+#[derive(NifStruct, Clone, Copy)]
 #[module = "Membrane.VKVideo.Encoder.ConstantBitrate"]
 pub struct ConstantBitrate {
     pub bitrate: u64,
     pub virtual_buffer_size_ms: u64,
 }
 
-#[derive(NifTaggedEnum)]
+#[derive(NifTaggedEnum, Clone, Copy)]
 pub enum EncoderRateControl {
     EncoderDefault,
     VariableBitrate(VariableBitrate),
@@ -115,7 +115,7 @@ pub fn encode<'a>(
     pts_ns: Option<u64>,
 ) -> Result<(Atom, EncodedFrame<'a>), Error> {
     let encoder = resource.encoder().ok_or_else(|| Error::BadArg)?;
-    let frame = Frame {
+    let frame = InputFrame {
         data: RawFrameData {
             frame: bytes.to_vec(),
             width: encoder.width,

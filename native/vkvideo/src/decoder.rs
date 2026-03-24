@@ -62,7 +62,7 @@ pub fn decode<'a>(
 
         results.push(RawFrame {
             payload: payload.release(env),
-            pts_ns: frame.pts,
+            pts_ns: frame.metadata.pts,
             width: frame.data.width,
             height: frame.data.height,
         });
@@ -91,7 +91,7 @@ pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<Raw
 
         results.push(RawFrame {
             payload: payload.release(env),
-            pts_ns: frame.pts,
+            pts_ns: frame.metadata.pts,
             width: frame.data.width,
             height: frame.data.height,
         });

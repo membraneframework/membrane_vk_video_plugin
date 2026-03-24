@@ -1,0 +1,153 @@
+use crate::encoder::{EncoderRateControl, EncoderTune};
+use crate::{ok, EncodedFrame, Resource};
+use rustler::{Atom, Env, Error, NifStruct, OwnedBinary, ResourceArc};
+use std::sync::Mutex;
+use vk_video::parameters::{Rational, ScalingAlgorithm, TranscoderOutputConfig, VideoParameters};
+use vk_video::{EncodedInputChunk, EncodedOutputChunk, Transcoder};
+
+rustler::atoms! {
+  unknown_scaling_algorithm
+}
+
+pub struct TranscoderResource {
+    pub transcoder_mutex: Mutex<Option<Transcoder>>,
+}
+
+#[derive(NifStruct, Clone, Copy)]
+#[module = "Membrane.VKVideo.Transcoder.OutputSpec"]
+pub struct OutputSpec {
+    pub width: u32,
+    pub height: u32,
+    pub frame_rate: (u32, u32),
+    pub tune: EncoderTune,
+    pub rate_control: EncoderRateControl,
+    pub scaling_algorithm: Atom,
+}
+
+pub fn new(
+    env: Env,
+    resource: ResourceArc<Resource>,
+    output_specs: Vec<OutputSpec>,
+) -> Result<(Atom, ResourceArc<Resource>), Error> {
+    let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
+    let transcoder_output_configs = output_specs
+        .iter()
+        .map(|spec| {
+            let non_zero_width = std::num::NonZero::new(spec.width).ok_or(Error::BadArg)?;
+            let non_zero_height = std::num::NonZero::new(spec.height).ok_or(Error::BadArg)?;
+
+            let video_parameters = VideoParameters {
+                width: non_zero_width,
+                height: non_zero_height,
+                target_framerate: Rational {
+                    numerator: spec.frame_rate.0,
+                    denominator: std::num::NonZero::new(spec.frame_rate.1).ok_or(Error::BadArg)?,
+                },
+            };
+
+            let encoder_parameters = match spec.tune {
+                EncoderTune::LowLatency => device_resource
+                    .encoder_parameters_low_latency(video_parameters, spec.rate_control.into())
+                    .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
+                EncoderTune::HighQuality => device_resource
+                    .encoder_parameters_high_quality(video_parameters, spec.rate_control.into())
+                    .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?,
+            };
+
+            let scaling_algorithm = match spec
+                .scaling_algorithm
+                .to_term(env)
+                .atom_to_string()?
+                .as_str()
+            {
+                "nearest_neighbour" => ScalingAlgorithm::NearestNeighbor,
+                "lanczos3" => ScalingAlgorithm::Lanczos3,
+                "bilinear" => ScalingAlgorithm::Bilinear,
+                _ => {
+                    return Err(Error::RaiseTerm(Box::new((
+                        unknown_scaling_algorithm(),
+                        spec.scaling_algorithm,
+                    ))))
+                }
+            };
+
+            Ok(TranscoderOutputConfig {
+                encoder_parameters,
+                scaling_algorithm,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let transcoder = device_resource
+        .create_transcoder(&transcoder_output_configs)
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+    let transcoder_mutex = Mutex::new(Some(transcoder));
+    let transcoder = TranscoderResource { transcoder_mutex };
+
+    let resource = ResourceArc::new(Resource::Transcoder(transcoder));
+    Ok((ok(), resource))
+}
+
+pub fn transcode<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<Resource>,
+    frame: EncodedFrame,
+) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+    let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
+    let mut guard = transcoder
+        .transcoder_mutex
+        .lock()
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+    let transcoder = guard.as_mut().ok_or(Error::BadArg)?;
+
+    let encoded_input_chunk = EncodedInputChunk {
+        data: frame.payload.as_slice(),
+        pts: frame.pts_ns,
+    };
+
+    let encoded_output_chunks = transcoder
+        .transcode(encoded_input_chunk)
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let results = process_outputs_chunks(env, encoded_output_chunks);
+
+    Ok((ok(), results))
+}
+
+pub fn flush<'a>(
+    env: Env<'a>,
+    resource: ResourceArc<Resource>,
+) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+    let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
+    let mut guard = transcoder
+        .transcoder_mutex
+        .lock()
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+    let transcoder = guard.as_mut().ok_or(Error::BadArg)?;
+
+    let encoded_output_chunks = transcoder
+        .flush()
+        .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
+
+    let results = process_outputs_chunks(env, encoded_output_chunks);
+
+    Ok((ok(), results))
+}
+
+fn process_outputs_chunks<'a>(
+    env: Env<'a>,
+    encoded_outputs_chunks: Vec<Vec<EncodedOutputChunk<Vec<u8>>>>,
+) -> Vec<Vec<EncodedFrame<'a>>> {
+    encoded_outputs_chunks
+        .into_iter()
+        .map(|chunks| {
+            chunks
+                .into_iter()
+                .map(|chunk| EncodedFrame {
+                    pts_ns: chunk.pts,
+                    payload: OwnedBinary::from_iter(chunk.data).release(env),
+                })
+                .collect()
+        })
+        .collect()
+}
