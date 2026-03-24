@@ -175,6 +175,7 @@ defmodule Transcoder.Test do
       Pipeline.terminate(pid)
     end
 
+    @tag :requires_gpu
     test "raises when output pads are not all linked in the same spec" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
@@ -205,6 +206,7 @@ defmodule Transcoder.Test do
                      5000
     end
 
+    @tag :requires_gpu
     test "raises when pads with unexpected Pad.ref() are connected" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
