@@ -14,7 +14,7 @@ The package can be installed by adding `membrane_vk_video_plugin` to your list o
 ```elixir
 def deps do
   [
-    {:membrane_vk_video_plugin, "~> 0.1.0"}
+    {:membrane_vk_video_plugin, "~> 0.2.0"}
   ]
 end
 ```

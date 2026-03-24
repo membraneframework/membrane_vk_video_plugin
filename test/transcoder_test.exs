@@ -2,9 +2,11 @@ defmodule Transcoder.Test do
   use ExUnit.Case, async: false
   import Membrane.ChildrenSpec
   import Membrane.Testing.Assertions
-  alias Membrane.{Pad, Testing}
+  require Membrane.Pad, as: Pad
   alias Membrane.Testing.{Pipeline, Sink}
   alias Membrane.VKVideo.Transcoder
+
+  @take_refs_snapshot System.get_env("TAKE_TEST_REFERENCES_SNAPSHOT", "") != ""
 
   @framerate_numerator 25
   @frame_duration_ms div(1000, @framerate_numerator)
@@ -100,6 +102,47 @@ defmodule Transcoder.Test do
     end
 
     @tag :requires_gpu
+    @tag :tmp_dir
+    test "produces desired output as specified by the config", %{tmp_dir: tmp_dir} do
+      in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
+      output1 = Path.join(tmp_dir, "output1.h264")
+      output2 = Path.join(tmp_dir, "output2.h264")
+      ref1 = "./fixtures/ref_1280x720" |> Path.expand(__DIR__)
+      ref2 = "./fixtures/ref_640x360" |> Path.expand(__DIR__)
+
+      output_specs = [
+        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
+        %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+      ]
+
+      pid =
+        Pipeline.start_link_supervised!(
+          spec: [
+            child(:file_src, %Membrane.File.Source{chunk_size: 40_960, location: in_path})
+            |> child(:parser, %Membrane.H264.Parser{
+              generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
+            })
+            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            get_child(:transcoder)
+            |> via_out(Pad.ref(:output, 0))
+            |> child(:sink_0, %Membrane.File.Sink{location: output1}),
+            get_child(:transcoder)
+            |> via_out(Pad.ref(:output, 1))
+            |> child(:sink_1, %Membrane.File.Sink{location: output2})
+          ]
+        )
+
+      assert_end_of_stream(pid, :sink_0, :input)
+      assert_end_of_stream(pid, :sink_1, :input)
+      Pipeline.terminate(pid)
+
+      if @take_refs_snapshot, do: File.write!(ref1, File.read!(output1))
+      if @take_refs_snapshot, do: File.write!(ref2, File.read!(output2))
+      assert File.read!(output1) == File.read!(ref1)
+      assert File.read!(output2) == File.read!(ref2)
+    end
+
+    @tag :requires_gpu
     test "works with a single output spec" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
@@ -140,25 +183,58 @@ defmodule Transcoder.Test do
         %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
       ]
 
-      assert_raise RuntimeError, ~r/Missing.*output.*1/, fn ->
-        pid =
-          Pipeline.start_link_supervised!(
-            spec: [
-              child(:file_src, %Membrane.File.Source{chunk_size: 40_960, location: in_path})
-              |> child(:parser, %Membrane.H264.Parser{
-                generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
-              })
-              |> child(:transcoder, %Transcoder{output_specs: output_specs}),
-              # only pad 0 linked — pad 1 is missing
-              get_child(:transcoder)
-              |> via_out(Pad.ref(:output, 0))
-              |> child(:sink_0, Sink)
-            ]
-          )
+      {:ok, _sup, pid} =
+        Pipeline.start(
+          spec: [
+            child(:file_src, %Membrane.File.Source{chunk_size: 40_960, location: in_path})
+            |> child(:parser, %Membrane.H264.Parser{
+              generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
+            })
+            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            # only pad 0 linked — pad 1 is missing
+            get_child(:transcoder)
+            |> via_out(Pad.ref(:output, 0))
+            |> child(:sink_0, Sink)
+          ]
+        )
 
-        assert_end_of_stream(pid, :sink_0, :input)
-        Pipeline.terminate(pid)
-      end
+      ref = Process.monitor(pid)
+
+      assert_receive {:DOWN, ^ref, :process, ^pid,
+                      {:membrane_child_crash, :transcoder, {%RuntimeError{}, _stack}}},
+                     5000
+    end
+
+    test "raises when pads with unexpected Pad.ref() are connected" do
+      in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
+
+      output_specs = [
+        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+      ]
+
+      {:ok, _sup, pid} =
+        Pipeline.start(
+          spec: [
+            child(:file_src, %Membrane.File.Source{chunk_size: 40_960, location: in_path})
+            |> child(:parser, %Membrane.H264.Parser{
+              generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
+            })
+            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            get_child(:transcoder)
+            |> via_out(Pad.ref(:output, 0))
+            |> child(:sink_0, Sink),
+            get_child(:transcoder)
+            # this pad is unexpected
+            |> via_out(Pad.ref(:output, 2))
+            |> child(:sink_2, Sink)
+          ]
+        )
+
+      ref = Process.monitor(pid)
+
+      assert_receive {:DOWN, ^ref, :process, ^pid,
+                      {:membrane_child_crash, :transcoder, {%RuntimeError{}, _stack}}},
+                     5000
     end
   end
 end

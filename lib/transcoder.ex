@@ -72,17 +72,35 @@ defmodule Membrane.VKVideo.Transcoder do
 
   @impl true
   def handle_playing(ctx, state) do
-    missing_pads =
+    expected_pads =
       state.output_specs
       |> Enum.with_index()
-      |> Enum.reject(fn {_spec, idx} -> Map.has_key?(ctx.pads, Pad.ref(:output, idx)) end)
       |> Enum.map(fn {_spec, idx} -> Pad.ref(:output, idx) end)
+
+    output_pads =
+      Map.keys(ctx.pads)
+      |> Enum.filter(fn
+        Pad.ref(:output, _id) -> true
+        _other -> false
+      end)
+
+    missing_pads = expected_pads -- output_pads
+    unexpected_pads = output_pads -- expected_pads
 
     if missing_pads != [] do
       raise """
-      #{inspect(__MODULE__)}: not all output pads are linked. \
+      Not all output pads are linked. \
       Missing: #{inspect(missing_pads)}. \
-      All output pads must be linked in the same spec as the transcoder element.
+      All expected output pads: #{inspect(expected_pads)} \
+      must be linked in the same spec as the transcoder element.
+      """
+    end
+
+    if unexpected_pads != [] do
+      raise """
+      Unexpected :output pads were linked: \
+      #{inspect(unexpected_pads)}. \
+      The only expected pads are: #{inspect(expected_pads)}.
       """
     end
 
@@ -105,19 +123,26 @@ defmodule Membrane.VKVideo.Transcoder do
   end
 
   @impl true
+  def handle_pad_added(pad_ref, %{playback: :playing} = _ctx, _state) do
+    raise """
+    Unexpected :output pad was linked: \
+    #{inspect(pad_ref)}
+    """
+  end
+
+  @impl true
+  def handle_pad_added(_pad_ref, _ctx, state) do
+    {[], state}
+  end
+
+  @impl true
   def handle_stream_format(:input, _stream_format, _ctx, state) do
     {[], state}
   end
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    frame = %{
-      __struct__: Membrane.VKVideo.EncodedFrame,
-      payload: buffer.payload,
-      pts_ns: buffer.pts
-    }
-
-    {:ok, outputs} = Native.transcode(state.transcoder, frame)
+    {:ok, outputs} = Native.transcode(state.transcoder, buffer.payload, buffer.pts)
     {build_buffer_actions(outputs), state}
   end
 
@@ -135,12 +160,10 @@ defmodule Membrane.VKVideo.Transcoder do
   end
 
   defp build_buffer_actions(outputs) do
-    outputs
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {frames, idx} ->
-      pad = Pad.ref(:output, idx)
-
-      Enum.map(frames, fn frame ->
+    Enum.flat_map(outputs, fn frame_per_pads ->
+      Enum.with_index(frame_per_pads)
+      |> Enum.map(fn {frame, idx} ->
+        pad = Pad.ref(:output, idx)
         pts = if frame.pts_ns != nil, do: Membrane.Time.nanoseconds(frame.pts_ns), else: nil
         {:buffer, {pad, %Membrane.Buffer{payload: frame.payload, pts: pts}}}
       end)

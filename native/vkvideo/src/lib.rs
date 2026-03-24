@@ -168,9 +168,10 @@ fn new_transcoder(
 fn transcode<'a>(
     env: Env<'a>,
     resource: ResourceArc<Resource>,
-    frame: EncodedFrame,
+    bytes: Binary,
+    pts_ns: Option<u64>,
 ) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
-    transcoder::transcode(env, resource, frame)
+    transcoder::transcode(env, resource, bytes, pts_ns)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]

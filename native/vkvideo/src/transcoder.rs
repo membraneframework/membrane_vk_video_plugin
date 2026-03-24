@@ -1,6 +1,6 @@
 use crate::encoder::{EncoderRateControl, EncoderTune};
 use crate::{ok, EncodedFrame, Resource};
-use rustler::{Atom, Env, Error, NifStruct, OwnedBinary, ResourceArc};
+use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
 use std::sync::Mutex;
 use vk_video::parameters::{Rational, ScalingAlgorithm, TranscoderOutputConfig, VideoParameters};
 use vk_video::{EncodedInputChunk, EncodedOutputChunk, Transcoder};
@@ -91,7 +91,8 @@ pub fn new(
 pub fn transcode<'a>(
     env: Env<'a>,
     resource: ResourceArc<Resource>,
-    frame: EncodedFrame,
+    bytes: Binary,
+    pts_ns: Option<u64>,
 ) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
     let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
     let mut guard = transcoder
@@ -101,8 +102,8 @@ pub fn transcode<'a>(
     let transcoder = guard.as_mut().ok_or(Error::BadArg)?;
 
     let encoded_input_chunk = EncodedInputChunk {
-        data: frame.payload.as_slice(),
-        pts: frame.pts_ns,
+        data: bytes.as_slice(),
+        pts: pts_ns,
     };
 
     let encoded_output_chunks = transcoder
