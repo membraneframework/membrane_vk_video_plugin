@@ -49,4 +49,15 @@ defmodule Membrane.VKVideo.Native do
 
   @spec destroy(t()) :: :ok
   def destroy(_resource), do: :erlang.nif_error(:nif_not_loaded)
+
+  @spec new_transcoder(t(), [Membrane.VKVideo.Transcoder.OutputSpec.t()]) ::
+          {:ok, t()} | no_return()
+  def new_transcoder(_device, _output_specs), do: :erlang.nif_error(:nif_not_loaded)
+
+  @spec transcode(t(), %{payload: binary(), pts_ns: non_neg_integer() | nil}) ::
+          {:ok, [[encoded_frame()]]} | no_return()
+  def transcode(_transcoder, _frame), do: :erlang.nif_error(:nif_not_loaded)
+
+  @spec flush_transcoder(t()) :: {:ok, [[encoded_frame()]]} | no_return()
+  def flush_transcoder(_transcoder), do: :erlang.nif_error(:nif_not_loaded)
 end
