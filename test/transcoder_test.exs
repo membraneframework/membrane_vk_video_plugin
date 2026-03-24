@@ -16,11 +16,6 @@ defmodule Transcoder.Test do
     test "sends correct stream format for each output pad" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
-        %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-      ]
-
       pid =
         Pipeline.start_link_supervised!(
           spec: [
@@ -28,12 +23,20 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 1))
+            |> via_out(Pad.ref(:output, 1),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_1, Sink)
           ]
         )
@@ -66,11 +69,6 @@ defmodule Transcoder.Test do
     test "produces buffers on all outputs and forwards end of stream" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
 
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
-        %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-      ]
-
       pid =
         Pipeline.start_link_supervised!(
           spec: [
@@ -78,12 +76,20 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 1))
+            |> via_out(Pad.ref(:output, 1),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_1, Sink)
           ]
         )
@@ -110,11 +116,6 @@ defmodule Transcoder.Test do
       ref1 = "./fixtures/ref-1280x720.h264" |> Path.expand(__DIR__)
       ref2 = "./fixtures/ref-640x360.h264" |> Path.expand(__DIR__)
 
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
-        %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-      ]
-
       pid =
         Pipeline.start_link_supervised!(
           spec: [
@@ -122,12 +123,20 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_0, %Membrane.File.Sink{location: output1}),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 1))
+            |> via_out(Pad.ref(:output, 1),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_1, %Membrane.File.Sink{location: output2})
           ]
         )
@@ -143,12 +152,8 @@ defmodule Transcoder.Test do
     end
 
     @tag :requires_gpu
-    test "works with a single output spec" do
+    test "works with a single output pad" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
-
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
-      ]
 
       pid =
         Pipeline.start_link_supervised!(
@@ -157,9 +162,13 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
             |> child(:sink_0, Sink)
           ]
         )
@@ -176,13 +185,8 @@ defmodule Transcoder.Test do
     end
 
     @tag :requires_gpu
-    test "raises when output pads are not all linked in the same spec" do
+    test "raises when output pad indices are not consecutive" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
-
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
-        %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-      ]
 
       {:ok, _sup, pid} =
         Pipeline.start(
@@ -191,11 +195,22 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
-            # only pad 0 linked — pad 1 is missing
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
-            |> child(:sink_0, Sink)
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
+            |> child(:sink_0, Sink),
+            # pad index 2 without pad index 1 — indices are not consecutive
+            get_child(:transcoder)
+            |> via_out(Pad.ref(:output, 2),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+              ]
+            )
+            |> child(:sink_2, Sink)
           ]
         )
 
@@ -207,12 +222,8 @@ defmodule Transcoder.Test do
     end
 
     @tag :requires_gpu
-    test "raises when pads with unexpected Pad.ref() are connected" do
+    test "raises when an output pad is linked after the element starts playing" do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
-
-      output_specs = [
-        %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
-      ]
 
       {:ok, _sup, pid} =
         Pipeline.start(
@@ -221,16 +232,29 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, %Transcoder{output_specs: output_specs}),
+            |> child(:transcoder, Transcoder),
             get_child(:transcoder)
-            |> via_out(Pad.ref(:output, 0))
-            |> child(:sink_0, Sink),
-            get_child(:transcoder)
-            # this pad is unexpected
-            |> via_out(Pad.ref(:output, 2))
-            |> child(:sink_2, Sink)
+            |> via_out(Pad.ref(:output, 0),
+              options: [
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+              ]
+            )
+            |> child(:sink_0, Sink)
           ]
         )
+
+      assert_pipeline_playback_changed(pid, _from, :playing)
+
+      Pipeline.execute_actions(pid,
+        spec:
+          get_child(:transcoder)
+          |> via_out(Pad.ref(:output, 1),
+            options: [
+              output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+            ]
+          )
+          |> child(:sink_1, Sink)
+      )
 
       ref = Process.monitor(pid)
 

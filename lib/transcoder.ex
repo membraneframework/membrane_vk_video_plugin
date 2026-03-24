@@ -3,31 +3,29 @@ defmodule Membrane.VKVideo.Transcoder do
   H.264 hardware transcoder using Vulkan Video extensions.
 
   Accepts a single H.264 input stream and produces multiple independently
-  configured H.264 output streams. Each output is described by a
-  `Membrane.VKVideo.Transcoder.OutputSpec` entry in the `output_specs` option.
+  configured H.264 output streams. Each output pad is configured via the
+  `output_spec` pad option passed through `via_out/2`.
 
   Output pads are dynamic and are referenced as `Pad.ref(:output, index)`, where
-  `index` is the zero-based position of the corresponding spec in `output_specs`.
+  `index` must start at 0 and be consecutive (0, 1, 2, ...).
 
   > #### Pad linking requirement {: .warning}
   >
-  > All output pads (`Pad.ref(:output, 0)` through `Pad.ref(:output, N-1)`) **must** be
-  > linked in the **same spec** in which the transcoder element itself is created.
-  > Linking pads in a later spec is not supported.
+  > All output pads **must** be linked in the **same spec** in which the transcoder
+  > element itself is created. Linking pads in a later spec is not supported.
 
   ## Example
 
       spec = [
         child(:source, source)
         |> child(:parser, %Membrane.H264.Parser{...})
-        |> child(:transcoder, %Membrane.VKVideo.Transcoder{
-          output_specs: [
-            %Membrane.VKVideo.Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
-            %Membrane.VKVideo.Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
-          ]
-        }),
-        get_child(:transcoder) |> via_out(Pad.ref(:output, 0)) |> child(:sink_hd, sink_hd),
-        get_child(:transcoder) |> via_out(Pad.ref(:output, 1)) |> child(:sink_sd, sink_sd)
+        |> child(:transcoder, Membrane.VKVideo.Transcoder),
+        get_child(:transcoder)
+        |> via_out(Pad.ref(:output, 0), options: [output_spec: %Membrane.VKVideo.Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}])
+        |> child(:sink_hd, sink_hd),
+        get_child(:transcoder)
+        |> via_out(Pad.ref(:output, 1), options: [output_spec: %Membrane.VKVideo.Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}])
+        |> child(:sink_sd, sink_sd)
       ]
   """
 
@@ -41,23 +39,24 @@ defmodule Membrane.VKVideo.Transcoder do
 
   def_output_pad :output,
     availability: :on_request,
-    accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au}
-
-  def_options output_specs: [
-                spec: [Membrane.VKVideo.Transcoder.OutputSpec.t()],
-                description: """
-                List of output specifications. Each entry defines the target resolution,
-                framerate, encoder tune, rate control, and scaling algorithm for one output
-                stream. Output pads are referenced as `Pad.ref(:output, index)` where
-                `index` is the zero-based position in this list.
-                """
-              ]
+    accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au},
+    options: [
+      output_spec: [
+        spec: Membrane.VKVideo.Transcoder.OutputSpec.t(),
+        description: """
+        Output specification for this pad. Defines the target resolution,
+        framerate, encoder tune, rate control, and scaling algorithm for the
+        output stream.
+        """
+      ]
+    ]
 
   @impl true
-  def handle_init(_ctx, opts) do
+  def handle_init(_ctx, _opts) do
     state = %{
       transcoder: nil,
-      output_specs: opts.output_specs
+      output_specs: %{},
+      device: nil
     }
 
     {[], state}
@@ -66,48 +65,48 @@ defmodule Membrane.VKVideo.Transcoder do
   @impl true
   def handle_setup(_ctx, state) do
     {:ok, device} = DeviceServer.get_device()
-    {:ok, transcoder} = Native.new_transcoder(device, state.output_specs)
-    {[], %{state | transcoder: transcoder}}
+    {[], %{state | device: device}}
   end
 
   @impl true
-  def handle_playing(ctx, state) do
-    expected_pads =
+  def handle_pad_added(pad_ref, %{playback: :playing} = _ctx, _state) do
+    raise """
+    Output pad #{inspect(pad_ref)} was linked while the element is already playing. \
+    All output pads must be linked in the same spec as the transcoder element.
+    """
+  end
+
+  @impl true
+  def handle_pad_added(Pad.ref(:output, idx), ctx, state) do
+    spec = ctx.options.output_spec
+    {[], %{state | output_specs: Map.put(state.output_specs, idx, spec)}}
+  end
+
+  @impl true
+  def handle_playing(_ctx, state) do
+    output_count = map_size(state.output_specs)
+    expected_indices = MapSet.new(0..(output_count - 1)//1)
+    actual_indices = MapSet.new(Map.keys(state.output_specs))
+
+    if expected_indices != actual_indices do
+      raise """
+      Output pad indices must be consecutive starting from 0. \
+      Got: #{inspect(actual_indices |> MapSet.to_list() |> Enum.sort())}
+      """
+    end
+
+    ordered_specs =
       state.output_specs
-      |> Enum.with_index()
-      |> Enum.map(fn {_spec, idx} -> Pad.ref(:output, idx) end)
+      |> Enum.sort_by(fn {idx, _} -> idx end)
+      |> Enum.map(fn {_, spec} -> spec end)
 
-    output_pads =
-      Map.keys(ctx.pads)
-      |> Enum.filter(fn
-        Pad.ref(:output, _id) -> true
-        _other -> false
-      end)
-
-    missing_pads = expected_pads -- output_pads
-    unexpected_pads = output_pads -- expected_pads
-
-    if missing_pads != [] do
-      raise """
-      Not all output pads are linked. \
-      Missing: #{inspect(missing_pads)}. \
-      All expected output pads: #{inspect(expected_pads)} \
-      must be linked in the same spec as the transcoder element.
-      """
-    end
-
-    if unexpected_pads != [] do
-      raise """
-      Unexpected :output pads were linked: \
-      #{inspect(unexpected_pads)}. \
-      The only expected pads are: #{inspect(expected_pads)}.
-      """
-    end
+    {:ok, transcoder} = Native.new_transcoder(state.device, ordered_specs)
+    state = %{state | transcoder: transcoder}
 
     stream_format_actions =
       state.output_specs
-      |> Enum.with_index()
-      |> Enum.map(fn {spec, idx} ->
+      |> Enum.sort_by(fn {idx, _} -> idx end)
+      |> Enum.map(fn {idx, spec} ->
         {:stream_format,
          {Pad.ref(:output, idx),
           %Membrane.H264{
@@ -120,19 +119,6 @@ defmodule Membrane.VKVideo.Transcoder do
       end)
 
     {stream_format_actions, state}
-  end
-
-  @impl true
-  def handle_pad_added(pad_ref, %{playback: :playing} = _ctx, _state) do
-    raise """
-    Unexpected :output pad was linked: \
-    #{inspect(pad_ref)}
-    """
-  end
-
-  @impl true
-  def handle_pad_added(_pad_ref, _ctx, state) do
-    {[], state}
   end
 
   @impl true
@@ -152,9 +138,9 @@ defmodule Membrane.VKVideo.Transcoder do
     buffer_actions = build_buffer_actions(flushed_outputs)
 
     eos_actions =
-      Enum.map(0..(length(state.output_specs) - 1), fn i ->
-        {:end_of_stream, Pad.ref(:output, i)}
-      end)
+      Map.keys(state.output_specs)
+      |> Enum.sort()
+      |> Enum.map(fn i -> {:end_of_stream, Pad.ref(:output, i)} end)
 
     {buffer_actions ++ eos_actions, %{state | transcoder: nil}}
   end
