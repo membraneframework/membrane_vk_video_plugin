@@ -6,9 +6,6 @@ defmodule Membrane.VKVideo.Transcoder do
   configured H.264 output streams. Each output pad is configured via the
   `output_spec` pad option passed through `via_out/2`.
 
-  Output pads are dynamic and are referenced as `Pad.ref(:output, index)`, where
-  `index` must start at 0 and be consecutive (0, 1, 2, ...).
-
   > #### Pad linking requirement {: .warning}
   >
   > All output pads **must** be linked in the **same spec** in which the transcoder
@@ -84,28 +81,15 @@ defmodule Membrane.VKVideo.Transcoder do
 
   @impl true
   def handle_playing(_ctx, state) do
-    output_count = map_size(state.output_specs)
-    expected_indices = MapSet.new(0..(output_count - 1)//1)
-    actual_indices = MapSet.new(Map.keys(state.output_specs))
-
-    if expected_indices != actual_indices do
-      raise """
-      Output pad indices must be consecutive starting from 0. \
-      Got: #{inspect(actual_indices |> MapSet.to_list() |> Enum.sort())}
-      """
-    end
-
-    ordered_specs =
+    specs =
       state.output_specs
-      |> Enum.sort_by(fn {idx, _} -> idx end)
-      |> Enum.map(fn {_, spec} -> spec end)
+      |> Enum.map(fn {_pad_id, spec} -> spec end)
 
-    {:ok, transcoder} = Native.new_transcoder(state.device, ordered_specs)
+    {:ok, transcoder} = Native.new_transcoder(state.device, specs)
     state = %{state | transcoder: transcoder}
 
     stream_format_actions =
       state.output_specs
-      |> Enum.sort_by(fn {idx, _} -> idx end)
       |> Enum.map(fn {idx, spec} ->
         {:stream_format,
          {Pad.ref(:output, idx),
@@ -129,27 +113,27 @@ defmodule Membrane.VKVideo.Transcoder do
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
     {:ok, outputs} = Native.transcode(state.transcoder, buffer.payload, buffer.pts)
-    {build_buffer_actions(outputs), state}
+    {build_buffer_actions(outputs, state), state}
   end
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
     {:ok, flushed_outputs} = Native.flush_transcoder(state.transcoder)
-    buffer_actions = build_buffer_actions(flushed_outputs)
+    buffer_actions = build_buffer_actions(flushed_outputs, state)
 
     eos_actions =
       Map.keys(state.output_specs)
-      |> Enum.sort()
-      |> Enum.map(fn i -> {:end_of_stream, Pad.ref(:output, i)} end)
+      |> Enum.map(fn id -> {:end_of_stream, Pad.ref(:output, id)} end)
 
     {buffer_actions ++ eos_actions, %{state | transcoder: nil}}
   end
 
-  defp build_buffer_actions(outputs) do
+  defp build_buffer_actions(outputs, state) do
     Enum.flat_map(outputs, fn frame_per_pads ->
       Enum.with_index(frame_per_pads)
-      |> Enum.map(fn {frame, idx} ->
-        pad = Pad.ref(:output, idx)
+      |> Enum.map(fn {frame, spec_id} ->
+        pad_id = Enum.at(state.output_specs, spec_id)
+        pad = Pad.ref(:output, pad_id)
         pts = if frame.pts_ns != nil, do: Membrane.Time.nanoseconds(frame.pts_ns), else: nil
         {:buffer, {pad, %Membrane.Buffer{payload: frame.payload, pts: pts}}}
       end)
