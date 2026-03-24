@@ -107,8 +107,8 @@ defmodule Transcoder.Test do
       in_path = "./fixtures/input-10.h264" |> Path.expand(__DIR__)
       output1 = Path.join(tmp_dir, "output1.h264")
       output2 = Path.join(tmp_dir, "output2.h264")
-      ref1 = "./fixtures/ref_1280x720" |> Path.expand(__DIR__)
-      ref2 = "./fixtures/ref_640x360" |> Path.expand(__DIR__)
+      ref1 = "./fixtures/ref-1280x720.h264" |> Path.expand(__DIR__)
+      ref2 = "./fixtures/ref-640x360.h264" |> Path.expand(__DIR__)
 
       output_specs = [
         %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}},
