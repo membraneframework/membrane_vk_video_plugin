@@ -29,19 +29,26 @@ pub fn new(
     output_specs: Vec<OutputSpec>,
     approx_framerate: (u32, u32),
 ) -> Result<ResourceArc<Resource>, Error> {
-    let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
+    let device_resource = &resource
+        .device()
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a device")))?
+        .device;
     let transcoder_output_configs = output_specs
         .iter()
         .map(|spec| {
-            let non_zero_width = std::num::NonZero::new(spec.width).ok_or(Error::BadArg)?;
-            let non_zero_height = std::num::NonZero::new(spec.height).ok_or(Error::BadArg)?;
+            let non_zero_width = std::num::NonZero::new(spec.width)
+                .ok_or(Error::RaiseTerm(Box::new("Improper width")))?;
+            let non_zero_height = std::num::NonZero::new(spec.height)
+                .ok_or(Error::RaiseTerm(Box::new("Improper height")))?;
 
             let video_parameters = VideoParameters {
                 width: non_zero_width,
                 height: non_zero_height,
                 target_framerate: Rational {
                     numerator: approx_framerate.0,
-                    denominator: std::num::NonZero::new(approx_framerate.1).ok_or(Error::BadArg)?,
+                    denominator: std::num::NonZero::new(approx_framerate.1).ok_or(
+                        Error::RaiseTerm(Box::new("Improper target_framerate denominator")),
+                    )?,
                 },
             };
 
@@ -94,12 +101,16 @@ pub fn transcode<'a>(
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
-    let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
+    let transcoder = resource
+        .transcoder()
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a transcoder")))?;
     let mut guard = transcoder
         .transcoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let transcoder = guard.as_mut().ok_or(Error::BadArg)?;
+    let transcoder: &mut Transcoder = guard.as_mut().ok_or(Error::RaiseTerm(Box::new(
+        "Transcoder resource is not initialized",
+    )))?;
 
     let encoded_input_chunk = EncodedInputChunk {
         data: bytes.as_slice(),
@@ -119,12 +130,16 @@ pub fn flush<'a>(
     env: Env<'a>,
     resource: ResourceArc<Resource>,
 ) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
-    let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
+    let transcoder = resource
+        .transcoder()
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a transcoder")))?;
     let mut guard = transcoder
         .transcoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
-    let transcoder = guard.as_mut().ok_or(Error::BadArg)?;
+    let transcoder: &mut Transcoder = guard.as_mut().ok_or(Error::RaiseTerm(Box::new(
+        "Transcoder resource is not initialized",
+    )))?;
 
     let encoded_output_chunks = transcoder
         .flush()
