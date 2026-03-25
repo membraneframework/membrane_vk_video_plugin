@@ -18,8 +18,8 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_setup(_ctx, state) do
-    {:ok, device} = DeviceServer.get_device()
-    {:ok, decoder} = Native.new_decoder(device)
+    device = DeviceServer.get_device()
+    decoder = Native.new_decoder(device)
     state = %{state | decoder: decoder}
     {[], state}
   end
@@ -31,7 +31,7 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    {:ok, decoded_frames} = Native.decode(state.decoder, buffer.payload, buffer.pts)
+    decoded_frames = Native.decode(state.decoder, buffer.payload, buffer.pts)
     Enum.flat_map_reduce(decoded_frames, state, &prepare_actions(&1, &2))
   end
 
@@ -71,7 +71,7 @@ defmodule Membrane.VKVideo.Decoder do
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
-    {:ok, flushed_frames} = Native.flush_decoder(state.decoder)
+    flushed_frames = Native.flush_decoder(state.decoder)
     :ok = Native.destroy(state.decoder)
     {actions, state} = Enum.flat_map_reduce(flushed_frames, state, &prepare_actions(&1, &2))
     {actions ++ [end_of_stream: :output], %{state | decoder: nil}}

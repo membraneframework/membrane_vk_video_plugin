@@ -73,7 +73,7 @@ defmodule Membrane.VKVideo.Transcoder do
 
   @impl true
   def handle_setup(_ctx, state) do
-    {:ok, device} = DeviceServer.get_device()
+    device = DeviceServer.get_device()
     {[], %{state | device: device}}
   end
 
@@ -113,7 +113,7 @@ defmodule Membrane.VKVideo.Transcoder do
 
   defp spawn_transcoder(state) do
     specs = state.output_specs |> Enum.map(fn {_pad_ref, spec} -> spec end)
-    {:ok, transcoder} = Native.new_transcoder(state.device, specs, state.framerate)
+    transcoder = Native.new_transcoder(state.device, specs, state.framerate)
     state = %{state | transcoder: transcoder}
 
     stream_format_actions =
@@ -135,13 +135,13 @@ defmodule Membrane.VKVideo.Transcoder do
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    {:ok, outputs} = Native.transcode(state.transcoder, buffer.payload, buffer.pts)
+    outputs = Native.transcode(state.transcoder, buffer.payload, buffer.pts)
     {build_buffer_actions(outputs, state), state}
   end
 
   @impl true
   def handle_end_of_stream(:input, _ctx, state) do
-    {:ok, flushed_outputs} = Native.flush_transcoder(state.transcoder)
+    flushed_outputs = Native.flush_transcoder(state.transcoder)
     buffer_actions = build_buffer_actions(flushed_outputs, state)
 
     eos_actions =

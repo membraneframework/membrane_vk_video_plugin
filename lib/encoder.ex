@@ -89,9 +89,9 @@ defmodule Membrane.VKVideo.Encoder do
   end
 
   defp spawn_encoder(state) do
-    {:ok, device} = DeviceServer.get_device()
+    device = DeviceServer.get_device()
 
-    {:ok, encoder} =
+    encoder =
       Native.new_encoder(
         device,
         state.width,
@@ -139,7 +139,7 @@ defmodule Membrane.VKVideo.Encoder do
 
   @impl true
   def handle_buffer(:input, buffer, _ctx, state) do
-    {:ok, encoded_frame} = Native.encode(state.encoder, buffer.payload, buffer.pts)
+    encoded_frame = Native.encode(state.encoder, buffer.payload, buffer.pts)
 
     pts =
       if encoded_frame.pts_ns != nil,

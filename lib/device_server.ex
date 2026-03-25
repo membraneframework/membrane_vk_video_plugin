@@ -21,7 +21,7 @@ defmodule Membrane.VKVideo.DeviceServer do
 
   defp maybe_create_device(state), do: state
 
-  @spec get_device() :: {:ok, Native.t()} | no_return()
+  @spec get_device() :: Native.t() | no_return()
   def get_device() do
     GenServer.call(__MODULE__, :get_device)
   end

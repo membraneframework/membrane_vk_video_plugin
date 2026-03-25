@@ -90,7 +90,7 @@ fn create_device() -> Result<(Atom, ResourceArc<Resource>), Error> {
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
     let device_resource = ResourceArc::new(Resource::Device(DeviceResource { device }));
-    Ok((ok(), device_resource))
+    Ok(device_resource)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]

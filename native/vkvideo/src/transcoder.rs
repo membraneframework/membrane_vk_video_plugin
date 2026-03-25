@@ -28,7 +28,7 @@ pub fn new(
     resource: ResourceArc<Resource>,
     output_specs: Vec<OutputSpec>,
     approx_framerate: (u32, u32),
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+) -> Result<ResourceArc<Resource>, Error> {
     let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
     let transcoder_output_configs = output_specs
         .iter()
@@ -85,7 +85,7 @@ pub fn new(
     let transcoder = TranscoderResource { transcoder_mutex };
 
     let resource = ResourceArc::new(Resource::Transcoder(transcoder));
-    Ok((ok(), resource))
+    Ok(resource)
 }
 
 pub fn transcode<'a>(
@@ -112,7 +112,7 @@ pub fn transcode<'a>(
 
     let results = process_outputs_chunks(env, encoded_output_chunks);
 
-    Ok((ok(), results))
+    Ok(results)
 }
 
 pub fn flush<'a>(
@@ -132,7 +132,7 @@ pub fn flush<'a>(
 
     let results = process_outputs_chunks(env, encoded_output_chunks);
 
-    Ok((ok(), results))
+    Ok(results)
 }
 
 fn process_outputs_chunks<'a>(

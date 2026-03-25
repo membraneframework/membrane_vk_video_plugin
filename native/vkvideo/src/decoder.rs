@@ -30,7 +30,7 @@ pub fn new(
     let decoder_mutex = Mutex::new(decoder);
     let decoder = DecoderResource { decoder_mutex };
     let resource = ResourceArc::new(Resource::Decoder(decoder));
-    Ok((ok(), resource))
+    Ok(resource)
 }
 
 pub fn decode<'a>(
@@ -67,7 +67,7 @@ pub fn decode<'a>(
             height: frame.data.height,
         });
     }
-    Ok((ok(), results))
+    Ok(results)
 }
 
 pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<RawFrame>), Error> {
@@ -96,5 +96,5 @@ pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<Raw
             height: frame.data.height,
         });
     }
-    Ok((ok(), results))
+    Ok(results)
 }

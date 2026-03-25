@@ -1,6 +1,6 @@
-use crate::{ok, EncodedFrame, Resource};
-use rustler::{Atom, Error, NifTaggedEnum, ResourceArc};
+use crate::{EncodedFrame, Resource};
 use rustler::{Binary, Env, NifStruct, NifUnitEnum, OwnedBinary};
+use rustler::{Error, NifTaggedEnum, ResourceArc};
 use std::sync::Mutex;
 use vk_video::parameters::{RateControl, Rational, VideoParameters};
 use vk_video::{BytesEncoder, InputFrame, RawFrameData};
@@ -71,7 +71,7 @@ pub fn new(
     frame_rate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+) -> Result<ResourceArc<Resource>, Error> {
     let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
     let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
     let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
@@ -105,7 +105,7 @@ pub fn new(
     };
 
     let resource = ResourceArc::new(Resource::Encoder(encoder));
-    Ok((ok(), resource))
+    Ok(resource)
 }
 
 pub fn encode<'a>(
@@ -113,7 +113,7 @@ pub fn encode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, EncodedFrame<'a>), Error> {
+) -> Result<EncodedFrame<'a>, Error> {
     let encoder = resource.encoder().ok_or_else(|| Error::BadArg)?;
     let frame = InputFrame {
         data: RawFrameData {
@@ -140,11 +140,8 @@ pub fn encode<'a>(
         OwnedBinary::new(len).ok_or(Error::RaiseTerm(Box::new("Couldn't create OwnedBinary")))?;
     payload.as_mut_slice().copy_from_slice(&encoded_frame.data);
 
-    Ok((
-        ok(),
-        EncodedFrame {
-            payload: payload.release(env),
-            pts_ns: encoded_frame.pts,
-        },
-    ))
+    Ok(EncodedFrame {
+        payload: payload.release(env),
+        pts_ns: encoded_frame.pts,
+    })
 }
