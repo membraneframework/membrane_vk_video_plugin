@@ -23,18 +23,18 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, Transcoder),
+            |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
               ]
             )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
               ]
             )
             |> child(:sink_1, Sink)
@@ -76,18 +76,18 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, Transcoder),
+            |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
               ]
             )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
               ]
             )
             |> child(:sink_1, Sink)
@@ -123,18 +123,18 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, Transcoder),
+            |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
               ]
             )
             |> child(:sink_0, %Membrane.File.Sink{location: output1}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
               ]
             )
             |> child(:sink_1, %Membrane.File.Sink{location: output2})
@@ -162,11 +162,11 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, Transcoder),
+            |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
               ]
             )
             |> child(:sink_0, Sink)
@@ -195,11 +195,11 @@ defmodule Transcoder.Test do
             |> child(:parser, %Membrane.H264.Parser{
               generate_best_effort_timestamps: %{framerate: {@framerate_numerator, 1}}
             })
-            |> child(:transcoder, Transcoder),
+            |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
               options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720, frame_rate: {25, 1}}
+                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
               ]
             )
             |> child(:sink_0, Sink)
@@ -211,7 +211,7 @@ defmodule Transcoder.Test do
           get_child(:transcoder)
           |> via_out(Pad.ref(:output, 1),
             options: [
-              output_spec: %Transcoder.OutputSpec{width: 640, height: 360, frame_rate: {25, 1}}
+              output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
             ]
           )
           |> child(:sink_1, Sink)
