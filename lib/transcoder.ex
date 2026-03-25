@@ -90,12 +90,27 @@ defmodule Membrane.VKVideo.Transcoder do
   end
 
   @impl true
-  def handle_playing(_ctx, state) do
-    specs =
-      state.output_specs
-      |> Enum.map(fn {_pad_ref, spec} -> spec end)
+  def handle_stream_format(:input, stream_format, _ctx, state) do
+    cond do
+      state.override_framerate? and is_nil(state.transcoder) ->
+        spawn_transcoder(state)
 
-    framerate = state.framerate || {30, 1}
+      not state.override_framerate? ->
+        new_framerate = stream_format.framerate || {30, 1}
+
+        if is_nil(state.transcoder) or new_framerate != state.framerate do
+          %{state | framerate: new_framerate} |> spawn_transcoder()
+        else
+          {[], state}
+        end
+
+      true ->
+        {[], state}
+    end
+  end
+
+  defp spawn_transcoder(state) do
+    specs = state.output_specs |> Enum.map(fn {_pad_ref, spec} -> spec end)
     {:ok, transcoder} = Native.new_transcoder(state.device, specs, framerate)
     state = %{state | transcoder: transcoder}
 
@@ -109,29 +124,10 @@ defmodule Membrane.VKVideo.Transcoder do
           height: spec.height
         }
 
-        stream_format =
-          if state.override_framerate? do
-            stream_format
-          else
-            %{stream_format | framerate: framerate}
-          end
-
         {:stream_format, {pad_ref, stream_format}}
       end)
 
     {stream_format_actions, state}
-  end
-
-  @impl true
-  def handle_stream_format(:input, stream_format, _ctx, state) do
-    state =
-      if state.override_framerate? do
-        state
-      else
-        %{state | framerate: stream_format.framerate}
-      end
-
-    {[], state}
   end
 
   @impl true
