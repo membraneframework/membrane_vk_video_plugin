@@ -160,8 +160,9 @@ fn new_transcoder(
     env: Env,
     resource: ResourceArc<Resource>,
     output_specs: Vec<OutputSpec>,
+    approx_framerate: (u32, u32),
 ) -> Result<(Atom, ResourceArc<Resource>), Error> {
-    transcoder::new(env, resource, output_specs)
+    transcoder::new(env, resource, output_specs, approx_framerate)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]

@@ -18,7 +18,6 @@ pub struct TranscoderResource {
 pub struct OutputSpec {
     pub width: u32,
     pub height: u32,
-    pub frame_rate: (u32, u32),
     pub tune: EncoderTune,
     pub rate_control: EncoderRateControl,
     pub scaling_algorithm: Atom,
@@ -28,6 +27,7 @@ pub fn new(
     env: Env,
     resource: ResourceArc<Resource>,
     output_specs: Vec<OutputSpec>,
+    approx_framerate: (u32, u32),
 ) -> Result<(Atom, ResourceArc<Resource>), Error> {
     let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
     let transcoder_output_configs = output_specs
@@ -40,8 +40,8 @@ pub fn new(
                 width: non_zero_width,
                 height: non_zero_height,
                 target_framerate: Rational {
-                    numerator: spec.frame_rate.0,
-                    denominator: std::num::NonZero::new(spec.frame_rate.1).ok_or(Error::BadArg)?,
+                    numerator: approx_framerate.0,
+                    denominator: std::num::NonZero::new(approx_framerate.1).ok_or(Error::BadArg)?,
                 },
             };
 
