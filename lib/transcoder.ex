@@ -27,8 +27,6 @@ defmodule Membrane.VKVideo.Transcoder do
   """
 
   use Membrane.Filter
-
-  alias Membrane.Pad
   alias Membrane.VKVideo.{DeviceServer, Native}
 
   def_options approx_framerate: [
@@ -158,7 +156,7 @@ defmodule Membrane.VKVideo.Transcoder do
     Enum.flat_map(outputs, fn frame_per_pads ->
       Enum.with_index(frame_per_pads)
       |> Enum.map(fn {frame, i} ->
-        pad_ref = Enum.at(state.output_specs, i)
+        {pad_ref, _spec} = Enum.at(state.output_specs, i)
         pts = if frame.pts_ns != nil, do: Membrane.Time.nanoseconds(frame.pts_ns), else: nil
         {:buffer, {pad_ref, %Membrane.Buffer{payload: frame.payload, pts: pts}}}
       end)
