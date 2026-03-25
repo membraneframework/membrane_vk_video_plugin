@@ -86,16 +86,16 @@ defmodule Membrane.VKVideo.Transcoder do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:output, idx), ctx, state) do
-    spec = ctx.options.output_spec
-    {[], %{state | output_specs: Map.put(state.output_specs, idx, spec)}}
+  def handle_pad_added(pad_ref, ctx, state) do
+    spec = ctx.pads[pad_ref].options.output_spec
+    {[], %{state | output_specs: Map.put(state.output_specs, pad_ref, spec)}}
   end
 
   @impl true
   def handle_playing(_ctx, state) do
     specs =
       state.output_specs
-      |> Enum.map(fn {_pad_id, spec} -> spec end)
+      |> Enum.map(fn {_pad_ref, spec} -> spec end)
 
     framerate = state.framerate || {30, 1}
     {:ok, transcoder} = Native.new_transcoder(state.device, specs, framerate)
@@ -103,7 +103,7 @@ defmodule Membrane.VKVideo.Transcoder do
 
     stream_format_actions =
       state.output_specs
-      |> Enum.map(fn {idx, spec} ->
+      |> Enum.map(fn {pad_ref, spec} ->
         stream_format = %Membrane.H264{
           stream_structure: :annexb,
           alignment: :au,
@@ -118,7 +118,7 @@ defmodule Membrane.VKVideo.Transcoder do
             %{stream_format | framerate: framerate}
           end
 
-        {:stream_format, {Pad.ref(:output, idx), stream_format}}
+        {:stream_format, {pad_ref, stream_format}}
       end)
 
     {stream_format_actions, state}
@@ -149,7 +149,7 @@ defmodule Membrane.VKVideo.Transcoder do
 
     eos_actions =
       Map.keys(state.output_specs)
-      |> Enum.map(fn id -> {:end_of_stream, Pad.ref(:output, id)} end)
+      |> Enum.map(fn pad_ref -> {:end_of_stream, pad_ref} end)
 
     {buffer_actions ++ eos_actions, %{state | transcoder: nil}}
   end
@@ -157,11 +157,10 @@ defmodule Membrane.VKVideo.Transcoder do
   defp build_buffer_actions(outputs, state) do
     Enum.flat_map(outputs, fn frame_per_pads ->
       Enum.with_index(frame_per_pads)
-      |> Enum.map(fn {frame, spec_id} ->
-        pad_id = Enum.at(state.output_specs, spec_id)
-        pad = Pad.ref(:output, pad_id)
+      |> Enum.map(fn {frame, i} ->
+        pad_ref = Enum.at(state.output_specs, i)
         pts = if frame.pts_ns != nil, do: Membrane.Time.nanoseconds(frame.pts_ns), else: nil
-        {:buffer, {pad, %Membrane.Buffer{payload: frame.payload, pts: pts}}}
+        {:buffer, {pad_ref, %Membrane.Buffer{payload: frame.payload, pts: pts}}}
       end)
     end)
   end
