@@ -60,7 +60,7 @@ pub fn new(
                 .atom_to_string()?
                 .as_str()
             {
-                "nearest_neighbour" => ScalingAlgorithm::NearestNeighbor,
+                "nearest_neighbor" => ScalingAlgorithm::NearestNeighbor,
                 "lanczos3" => ScalingAlgorithm::Lanczos3,
                 "bilinear" => ScalingAlgorithm::Bilinear,
                 _ => {

@@ -11,7 +11,7 @@ defmodule Membrane.VKVideo.Transcoder.OutputSpec do
   * `tune` - encoder tuning preset: `:low_latency` (default) or `:high_quality`
   * `rate_control` - rate control mode; see `Membrane.VKVideo.Encoder` for available options
   * `scaling_algorithm` - algorithm used when scaling the input to the output resolution:
-    `:nearest_neighbour`, `:lanczos3`, or `:bilinear` (default)
+    `:nearest_neighbor`, `:lanczos3`, or `:bilinear` (default)
   """
 
   alias Membrane.VKVideo.Encoder
@@ -25,7 +25,7 @@ defmodule Membrane.VKVideo.Transcoder.OutputSpec do
             | :disabled
             | {:variable_bitrate, Encoder.VariableBitrate.t()}
             | {:constant_bitrate, Encoder.ConstantBitrate.t()},
-          scaling_algorithm: :nearest_neighbour | :lanczos3 | :bilinear
+          scaling_algorithm: :nearest_neighbor | :lanczos3 | :bilinear
         }
 
   @enforce_keys [:width, :height]
