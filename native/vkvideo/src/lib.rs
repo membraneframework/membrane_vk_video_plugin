@@ -72,7 +72,7 @@ fn load(env: Env, _: Term) -> bool {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-fn create_device() -> Result<(Atom, ResourceArc<Resource>), Error> {
+fn create_device() -> Result<ResourceArc<Resource>, Error> {
     let instance = vk_video::VulkanInstance::new()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
@@ -94,10 +94,7 @@ fn create_device() -> Result<(Atom, ResourceArc<Resource>), Error> {
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-fn new_decoder(
-    env: Env,
-    resource: ResourceArc<Resource>,
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+fn new_decoder(env: Env, resource: ResourceArc<Resource>) -> Result<ResourceArc<Resource>, Error> {
     decoder::new(env, resource)
 }
 
@@ -107,15 +104,12 @@ pub fn decode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
+) -> Result<Vec<RawFrame<'a>>, Error> {
     decoder::decode(env, resource, bytes, pts_ns)
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
-pub fn flush_decoder(
-    env: Env,
-    resource: ResourceArc<Resource>,
-) -> Result<(Atom, Vec<RawFrame>), Error> {
+pub fn flush_decoder(env: Env, resource: ResourceArc<Resource>) -> Result<Vec<RawFrame>, Error> {
     decoder::flush(env, resource)
 }
 
@@ -128,7 +122,7 @@ fn new_encoder(
     frame_rate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+) -> Result<ResourceArc<Resource>, Error> {
     encoder::new(env, resource, width, height, frame_rate, tune, rate_control)
 }
 
@@ -138,7 +132,7 @@ fn encode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, EncodedFrame<'a>), Error> {
+) -> Result<EncodedFrame<'a>, Error> {
     encoder::encode(env, resource, bytes, pts_ns)
 }
 
@@ -161,7 +155,7 @@ fn new_transcoder(
     resource: ResourceArc<Resource>,
     output_specs: Vec<OutputSpec>,
     approx_framerate: (u32, u32),
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+) -> Result<ResourceArc<Resource>, Error> {
     transcoder::new(env, resource, output_specs, approx_framerate)
 }
 
@@ -171,7 +165,7 @@ fn transcode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
     transcoder::transcode(env, resource, bytes, pts_ns)
 }
 
@@ -179,7 +173,7 @@ fn transcode<'a>(
 pub fn flush_transcoder<'a>(
     env: Env<'a>,
     resource: ResourceArc<Resource>,
-) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
     transcoder::flush(env, resource)
 }
 

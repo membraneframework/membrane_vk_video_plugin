@@ -1,5 +1,5 @@
 use crate::encoder::{EncoderRateControl, EncoderTune};
-use crate::{ok, EncodedFrame, Resource};
+use crate::{EncodedFrame, Resource};
 use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
 use std::sync::Mutex;
 use vk_video::parameters::{Rational, ScalingAlgorithm, TranscoderOutputConfig, VideoParameters};
@@ -93,7 +93,7 @@ pub fn transcode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
     let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
     let mut guard = transcoder
         .transcoder_mutex
@@ -118,7 +118,7 @@ pub fn transcode<'a>(
 pub fn flush<'a>(
     env: Env<'a>,
     resource: ResourceArc<Resource>,
-) -> Result<(Atom, Vec<Vec<EncodedFrame<'a>>>), Error> {
+) -> Result<Vec<Vec<EncodedFrame<'a>>>, Error> {
     let transcoder = resource.transcoder().ok_or_else(|| Error::BadArg)?;
     let mut guard = transcoder
         .transcoder_mutex

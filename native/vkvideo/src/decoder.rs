@@ -1,6 +1,5 @@
-use crate::ok;
 use crate::Resource;
-use rustler::{Atom, Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
+use rustler::{Binary, Env, Error, NifStruct, OwnedBinary, ResourceArc};
 use std::sync::Mutex;
 use vk_video::{parameters::DecoderParameters, BytesDecoder, EncodedInputChunk};
 
@@ -17,10 +16,7 @@ pub struct RawFrame<'a> {
     pub height: u32,
 }
 
-pub fn new(
-    _env: Env,
-    resource: ResourceArc<Resource>,
-) -> Result<(Atom, ResourceArc<Resource>), Error> {
+pub fn new(_env: Env, resource: ResourceArc<Resource>) -> Result<ResourceArc<Resource>, Error> {
     let decoder = resource
         .device()
         .ok_or_else(|| Error::BadArg)?
@@ -38,7 +34,7 @@ pub fn decode<'a>(
     resource: ResourceArc<Resource>,
     bytes: Binary,
     pts_ns: Option<u64>,
-) -> Result<(Atom, Vec<RawFrame<'a>>), Error> {
+) -> Result<Vec<RawFrame<'a>>, Error> {
     let mut decoder = resource
         .decoder()
         .ok_or_else(|| Error::BadArg)?
@@ -70,7 +66,7 @@ pub fn decode<'a>(
     Ok(results)
 }
 
-pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<(Atom, Vec<RawFrame>), Error> {
+pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<Vec<RawFrame>, Error> {
     let mut decoder = resource
         .decoder()
         .ok_or_else(|| Error::BadArg)?

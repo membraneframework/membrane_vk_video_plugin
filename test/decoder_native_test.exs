@@ -7,10 +7,10 @@ defmodule Decoder.NativeTest do
     in_path = "./fixtures/input-100.h264" |> Path.expand(__DIR__)
 
     assert {:ok, file} = File.read(in_path)
-    {:ok, device} = DeviceServer.get_device()
-    {:ok, decoder_ref} = Native.new_decoder(device)
-    {:ok, decoded_frames} = Native.decode(decoder_ref, file, 0)
-    {:ok, flushed_frames} = Native.flush_decoder(decoder_ref)
+    device = DeviceServer.get_device()
+    decoder_ref = Native.new_decoder(device)
+    decoded_frames = Native.decode(decoder_ref, file, 0)
+    flushed_frames = Native.flush_decoder(decoder_ref)
     all_frames = decoded_frames ++ flushed_frames
     assert length(all_frames) == 100
     [first_frame | _rest_of_frames] = all_frames

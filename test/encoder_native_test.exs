@@ -41,9 +41,9 @@ defmodule Encoder.NativeTest do
 
       assert {:ok, file} = File.read(in_path)
 
-      {:ok, device} = DeviceServer.get_device()
+      device = DeviceServer.get_device()
 
-      {:ok, encoder_ref} =
+      encoder_ref =
         Native.new_encoder(
           device,
           @width,
@@ -57,7 +57,7 @@ defmodule Encoder.NativeTest do
 
       encoded_frames =
         Enum.map(raw_frames, fn raw_frame ->
-          {:ok, encoded_frame} =
+          encoded_frame =
             Native.encode(encoder_ref, raw_frame)
 
           encoded_frame.payload
