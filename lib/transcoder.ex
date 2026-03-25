@@ -56,6 +56,8 @@ defmodule Membrane.VKVideo.Transcoder do
       ]
     ]
 
+  @default_framerate {30, 1}
+
   @impl true
   def handle_init(_ctx, opts) do
     state = %{
@@ -96,7 +98,7 @@ defmodule Membrane.VKVideo.Transcoder do
         spawn_transcoder(state)
 
       not state.override_framerate? ->
-        new_framerate = stream_format.framerate || {30, 1}
+        new_framerate = stream_format.framerate || @default_framerate
 
         if is_nil(state.transcoder) or new_framerate != state.framerate do
           %{state | framerate: new_framerate} |> spawn_transcoder()
@@ -111,7 +113,7 @@ defmodule Membrane.VKVideo.Transcoder do
 
   defp spawn_transcoder(state) do
     specs = state.output_specs |> Enum.map(fn {_pad_ref, spec} -> spec end)
-    {:ok, transcoder} = Native.new_transcoder(state.device, specs, framerate)
+    {:ok, transcoder} = Native.new_transcoder(state.device, specs, state.framerate)
     state = %{state | transcoder: transcoder}
 
     stream_format_actions =
@@ -121,7 +123,8 @@ defmodule Membrane.VKVideo.Transcoder do
           stream_structure: :annexb,
           alignment: :au,
           width: spec.width,
-          height: spec.height
+          height: spec.height,
+          framerate: state.framerate
         }
 
         {:stream_format, {pad_ref, stream_format}}
