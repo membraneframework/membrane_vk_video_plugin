@@ -19,7 +19,7 @@ pub struct RawFrame<'a> {
 pub fn new(_env: Env, resource: ResourceArc<Resource>) -> Result<ResourceArc<Resource>, Error> {
     let decoder = resource
         .device()
-        .ok_or_else(|| Error::BadArg)?
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a device")))?
         .device
         .create_bytes_decoder(DecoderParameters::default())
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -37,7 +37,7 @@ pub fn decode<'a>(
 ) -> Result<Vec<RawFrame<'a>>, Error> {
     let mut decoder = resource
         .decoder()
-        .ok_or_else(|| Error::BadArg)?
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a decoder")))?
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
@@ -69,7 +69,7 @@ pub fn decode<'a>(
 pub fn flush(env: Env, resource: ResourceArc<Resource>) -> Result<Vec<RawFrame>, Error> {
     let mut decoder = resource
         .decoder()
-        .ok_or_else(|| Error::BadArg)?
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a decoder")))?
         .decoder_mutex
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;

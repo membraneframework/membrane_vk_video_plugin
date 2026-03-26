@@ -68,20 +68,29 @@ pub fn new(
     resource: ResourceArc<Resource>,
     width: u32,
     height: u32,
-    frame_rate: (u32, u32),
+    approx_framerate: (u32, u32),
     tune: EncoderTune,
     rate_control: EncoderRateControl,
 ) -> Result<ResourceArc<Resource>, Error> {
-    let device_resource = &resource.device().ok_or_else(|| Error::BadArg)?.device;
-    let non_zero_width = std::num::NonZero::new(width).ok_or(Error::BadArg)?;
-    let non_zero_height = std::num::NonZero::new(height).ok_or(Error::BadArg)?;
+    let device_resource = &resource
+        .device()
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not a device")))?
+        .device;
+    let non_zero_width = std::num::NonZero::new(width).ok_or(Error::RaiseTerm(Box::new(
+        "Improper width: width must be non-zero",
+    )))?;
+    let non_zero_height = std::num::NonZero::new(height).ok_or(Error::RaiseTerm(Box::new(
+        "Improper height: height must be non-zero",
+    )))?;
 
     let video_parameters = VideoParameters {
         width: non_zero_width,
         height: non_zero_height,
         target_framerate: Rational {
-            numerator: frame_rate.0,
-            denominator: std::num::NonZero::new(frame_rate.1).ok_or(Error::BadArg)?,
+            numerator: approx_framerate.0,
+            denominator: std::num::NonZero::new(approx_framerate.1).ok_or(Error::RaiseTerm(Box::new(
+                "Improper approx_framerate denominator: approx_framerate denominator must be non-zero",
+            )))?,
         },
     };
 
@@ -114,7 +123,9 @@ pub fn encode<'a>(
     bytes: Binary,
     pts_ns: Option<u64>,
 ) -> Result<EncodedFrame<'a>, Error> {
-    let encoder = resource.encoder().ok_or_else(|| Error::BadArg)?;
+    let encoder = resource
+        .encoder()
+        .ok_or_else(|| Error::RaiseTerm(Box::new("Resource is not an encoder")))?;
     let frame = InputFrame {
         data: RawFrameData {
             frame: bytes.to_vec(),
@@ -129,7 +140,9 @@ pub fn encode<'a>(
         .lock()
         .map_err(|err| Error::RaiseTerm(Box::new(err.to_string())))?;
 
-    let encoder = guard.as_mut().ok_or(Error::BadArg)?;
+    let encoder: &mut BytesEncoder = guard
+        .as_mut()
+        .ok_or(Error::RaiseTerm(Box::new("Encoder is not initialized")))?;
 
     let encoded_frame = encoder
         .encode(&frame, false)

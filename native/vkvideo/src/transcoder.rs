@@ -36,10 +36,12 @@ pub fn new(
     let transcoder_output_configs = output_specs
         .iter()
         .map(|spec| {
-            let non_zero_width = std::num::NonZero::new(spec.width)
-                .ok_or(Error::RaiseTerm(Box::new("Improper width")))?;
-            let non_zero_height = std::num::NonZero::new(spec.height)
-                .ok_or(Error::RaiseTerm(Box::new("Improper height")))?;
+            let non_zero_width = std::num::NonZero::new(spec.width).ok_or(Error::RaiseTerm(
+                Box::new("Improper width: width must be non-zero"),
+            ))?;
+            let non_zero_height = std::num::NonZero::new(spec.height).ok_or(Error::RaiseTerm(
+                Box::new("Improper height: height must be non-zero"),
+            ))?;
 
             let video_parameters = VideoParameters {
                 width: non_zero_width,
@@ -47,7 +49,9 @@ pub fn new(
                 target_framerate: Rational {
                     numerator: approx_framerate.0,
                     denominator: std::num::NonZero::new(approx_framerate.1).ok_or(
-                        Error::RaiseTerm(Box::new("Improper target_framerate denominator")),
+                        Error::RaiseTerm(Box::new(
+                            "Improper approx_framerate denominator: approx_framerate denominator must be non-zero",
+                        )),
                     )?,
                 },
             };
