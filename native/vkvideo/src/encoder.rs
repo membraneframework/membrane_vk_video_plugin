@@ -40,9 +40,9 @@ pub enum EncoderRateControl {
     Disabled,
 }
 
-impl Into<RateControl> for EncoderRateControl {
-    fn into(self) -> RateControl {
-        match self {
+impl From<EncoderRateControl> for RateControl {
+    fn from(rc: EncoderRateControl) -> Self {
+        match rc {
             EncoderRateControl::EncoderDefault => RateControl::EncoderDefault,
             EncoderRateControl::ConstantBitrate(config) => RateControl::ConstantBitrate {
                 bitrate: config.bitrate,
