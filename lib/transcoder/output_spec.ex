@@ -1,18 +1,5 @@
 defmodule Membrane.VKVideo.Transcoder.OutputSpec do
-  @moduledoc """
-  Defines a single output specification for the `Membrane.VKVideo.Transcoder` element.
-
-  Each output spec corresponds to one output pad (`Pad.ref(:output, index)`) where the index
-  matches the position of the spec in the `output_specs` list.
-
-  Fields:
-  * `width` - output frame width in pixels
-  * `height` - output frame height in pixels
-  * `tune` - encoder tuning preset: `:low_latency` (default) or `:high_quality`
-  * `rate_control` - rate control mode; see `Membrane.VKVideo.Encoder` for available options
-  * `scaling_algorithm` - algorithm used when scaling the input to the output resolution:
-    `:nearest_neighbor`, `:lanczos3`, or `:bilinear` (default)
-  """
+  @moduledoc false
 
   alias Membrane.VKVideo.Encoder
 
