@@ -133,10 +133,10 @@ defmodule Membrane.VKVideo.Transcoder do
   @impl true
   def handle_stream_format(:input, stream_format, _ctx, state) do
     new_framerate =
-      if not is_nil(state.approx_framerate_option) do
-        state.approx_framerate_option
-      else
+      if is_nil(state.approx_framerate_option) do
         stream_format.framerate || @default_framerate
+      else
+        state.approx_framerate_option
       end
 
     old_framerate = state.approx_framerate
