@@ -132,21 +132,16 @@ defmodule Membrane.VKVideo.Transcoder do
 
   @impl true
   def handle_stream_format(:input, stream_format, _ctx, state) do
-    cond do
-      state.override_framerate? and is_nil(state.transcoder) ->
-        spawn_transcoder(state)
+    new_framerate = state.approx_framerate || stream_format.framerate || @default_framerate
 
-      not state.override_framerate? ->
-        new_framerate = stream_format.framerate || @default_framerate
+    needs_spawn? =
+      is_nil(state.transcoder) or
+        (not state.override_framerate? and new_framerate != state.approx_framerate)
 
-        if is_nil(state.transcoder) or new_framerate != state.approx_framerate do
-          %{state | approx_framerate: new_framerate} |> spawn_transcoder()
-        else
-          {[], state}
-        end
-
-      true ->
-        {[], state}
+    if needs_spawn? do
+      %{state | approx_framerate: new_framerate} |> spawn_transcoder()
+    else
+      {[], state}
     end
   end
 
