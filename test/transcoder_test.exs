@@ -26,16 +26,12 @@ defmodule Transcoder.Test do
             |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
-              ]
+              options: [width: 1280, height: 720]
             )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
-              ]
+              options: [width: 640, height: 360]
             )
             |> child(:sink_1, Sink)
           ]
@@ -79,16 +75,12 @@ defmodule Transcoder.Test do
             |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
-              ]
+              options: [width: 1280, height: 720]
             )
             |> child(:sink_0, Sink),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
-              ]
+              options: [width: 640, height: 360]
             )
             |> child(:sink_1, Sink)
           ]
@@ -126,16 +118,12 @@ defmodule Transcoder.Test do
             |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
-              ]
+              options: [width: 1280, height: 720]
             )
             |> child(:sink_0, %Membrane.File.Sink{location: output1}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 1),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
-              ]
+              options: [width: 640, height: 360]
             )
             |> child(:sink_1, %Membrane.File.Sink{location: output2})
           ]
@@ -165,9 +153,7 @@ defmodule Transcoder.Test do
             |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
-              ]
+              options: [width: 1280, height: 720]
             )
             |> child(:sink_0, Sink)
           ]
@@ -198,9 +184,7 @@ defmodule Transcoder.Test do
             |> child(:transcoder, %Transcoder{approx_framerate: {25, 1}}),
             get_child(:transcoder)
             |> via_out(Pad.ref(:output, 0),
-              options: [
-                output_spec: %Transcoder.OutputSpec{width: 1280, height: 720}
-              ]
+              options: [width: 1280, height: 720]
             )
             |> child(:sink_0, Sink)
           ]
@@ -210,9 +194,7 @@ defmodule Transcoder.Test do
         spec:
           get_child(:transcoder)
           |> via_out(Pad.ref(:output, 1),
-            options: [
-              output_spec: %Transcoder.OutputSpec{width: 640, height: 360}
-            ]
+            options: [width: 640, height: 360]
           )
           |> child(:sink_1, Sink)
       )

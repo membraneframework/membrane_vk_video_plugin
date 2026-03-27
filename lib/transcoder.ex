@@ -87,10 +87,10 @@ defmodule Membrane.VKVideo.Transcoder do
   def handle_init(_ctx, opts) do
     state = %{
       transcoder: nil,
-      output_specs: %{},
+      output_specs: [],
       device: nil,
-      override_framerate?: opts.approx_framerate != nil,
-      approx_framerate: opts.approx_framerate
+      approx_framerate_option: opts.approx_framerate,
+      approx_framerate: nil
     }
 
     {[], state}
@@ -122,26 +122,26 @@ defmodule Membrane.VKVideo.Transcoder do
       scaling_algorithm: pad_opts.scaling_algorithm
     }
 
-    {[], %{state | output_specs: Map.put(state.output_specs, pad_ref, spec)}}
+    {[], %{state | output_specs: [{pad_ref, spec} | state.output_specs]}}
   end
 
   @impl true
   def handle_stream_format(:input, stream_format, _ctx, state) do
-    cond do
-      state.override_framerate? and is_nil(state.transcoder) ->
-        spawn_transcoder(state)
+    new_framerate =
+      if is_nil(state.approx_framerate_option) do
+        stream_format.framerate || @default_framerate
+      else
+        state.approx_framerate_option
+      end
 
-      not state.override_framerate? ->
-        new_framerate = stream_format.framerate || @default_framerate
+    old_framerate = state.approx_framerate
 
-        if is_nil(state.transcoder) or new_framerate != state.approx_framerate do
-          %{state | approx_framerate: new_framerate} |> spawn_transcoder()
-        else
-          {[], state}
-        end
+    state = %{state | approx_framerate: new_framerate}
 
-      true ->
-        {[], state}
+    if is_nil(state.transcoder) or new_framerate != old_framerate do
+      spawn_transcoder(state)
+    else
+      {[], state}
     end
   end
 
@@ -181,8 +181,7 @@ defmodule Membrane.VKVideo.Transcoder do
     buffer_actions = Native.flush_transcoder(state.transcoder) |> build_buffer_actions(state)
 
     eos_actions =
-      Map.keys(state.output_specs)
-      |> Enum.map(fn pad_ref -> {:end_of_stream, pad_ref} end)
+      state.output_specs |> Enum.map(fn {pad_ref, _spec} -> {:end_of_stream, pad_ref} end)
 
     {buffer_actions ++ eos_actions, %{state | transcoder: nil}}
   end

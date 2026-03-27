@@ -137,6 +137,7 @@ fn encode<'a>(
 }
 
 #[rustler::nif(schedule = "DirtyIo")]
+#[allow(unused_variables)]
 fn destroy<'a>(env: Env<'a>, resource: ResourceArc<Resource>) -> Result<Atom, Error> {
     if let Resource::Encoder(encoder) = &*resource {
         let mut encoder = encoder
