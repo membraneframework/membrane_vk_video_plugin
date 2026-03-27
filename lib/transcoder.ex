@@ -29,24 +29,20 @@ defmodule Membrane.VKVideo.Transcoder do
   use Membrane.Filter
   alias Membrane.VKVideo.{DeviceServer, Native, Transcoder.OutputSpec}
 
-  def_options(
-    approx_framerate: [
-      spec: {non_neg_integer(), pos_integer()} | nil,
-      default: nil,
-      description: """
-      Framerate of the input stream expressed as `{numerator, denominator}`.
-      It's only used by the rate control mechanism and therefore does not need to be an exact
-      value. If nil, the framerate will be read from the stream format's structure or set
-      to a fixed value of 30 frames per second if framerate is not provided by the stream format.
-      """
-    ]
-  )
+  def_options approx_framerate: [
+                spec: {non_neg_integer(), pos_integer()} | nil,
+                default: nil,
+                description: """
+                Framerate of the input stream expressed as `{numerator, denominator}`.
+                It's only used by the rate control mechanism and therefore does not need to be an exact
+                value. If nil, the framerate will be read from the stream format's structure or set
+                to a fixed value of 30 frames per second if framerate is not provided by the stream format.
+                """
+              ]
 
-  def_input_pad(:input,
-    accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au}
-  )
+  def_input_pad :input, accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au}
 
-  def_output_pad(:output,
+  def_output_pad :output,
     availability: :on_request,
     accepted_format: %Membrane.H264{stream_structure: :annexb, alignment: :au},
     options: [
@@ -84,7 +80,6 @@ defmodule Membrane.VKVideo.Transcoder do
         description: "Algorithm used when scaling the input to the output resolution."
       ]
     ]
-  )
 
   @default_framerate {30, 1}
 
