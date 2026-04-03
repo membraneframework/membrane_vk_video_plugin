@@ -1,7 +1,7 @@
 defmodule Membrane.VKVideo.Mixfile do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
   @github_url "https://github.com/membraneframework/membrane_vk_video_plugin"
 
   def project do
@@ -70,7 +70,8 @@ defmodule Membrane.VKVideo.Mixfile do
       links: %{
         "GitHub" => @github_url,
         "Membrane Framework Homepage" => "https://membrane.stream"
-      }
+      },
+      files: ["lib", "native", "Cargo.lock", "mix.exs", "README*", "LICENSE*", ".formatter.exs"]
     ]
   end
 
