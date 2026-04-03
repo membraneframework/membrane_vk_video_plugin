@@ -71,7 +71,7 @@ defmodule Membrane.VKVideo.Mixfile do
         "GitHub" => @github_url,
         "Membrane Framework Homepage" => "https://membrane.stream"
       },
-      files: ["lib", "native", "Cargo.lock", "mix.exs", "README*", "LICENSE*", ".formatter.exs"]
+      files: ["lib", "native", "mix.exs", "README*", "LICENSE*", ".formatter.exs"]
     ]
   end
 
